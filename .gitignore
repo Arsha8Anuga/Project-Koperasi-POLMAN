@@ -1,0 +1,44 @@
+# ===== Env & rahasia =====
+.env
+.env.*
+!.env.example
+
+# ===== Python (backend) =====
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ===== Node / Vite (frontend-kasir, frontend-admin) =====
+node_modules/
+dist/
+dist-ssr/
+.vite/
+*.local
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===== Editor & OS =====
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ===== Lain-lain =====
+*.log
+# dump / backup database lokal
+dump/
+*.archive
