@@ -1,49 +1,63 @@
 from fastapi import APIRouter, Depends, Query
-from app.api.deps import get_db, require_roles
+from pymongo.asynchronous.database import AsyncDatabase
+
+from app.api.deps import CurrentUser, get_db, require_roles
 from app.core.enums import Role
-from app.schemas.supplier import SupplierCreate, SupplierUpdate, SupplierStatus
+from app.schemas.common import ERROR_RESPONSES, ApiResponse, PaginatedResponse
+from app.schemas.supplier import SupplierCreate, SupplierOut, SupplierStatusUpdate, SupplierUpdate
 from app.services import supplier_service
+from app.utils.pagination import PageParams
 from app.utils.response import ok, paginated
 
-router = APIRouter(prefix="/suppliers", tags=["Suppliers"])
-
-VIEW = (Role.LOGISTIK, Role.OWNER)     # yang boleh lihat
-EDIT = (Role.LOGISTIK,)                # yang boleh ubah
-
-
-@router.get("")
-async def list_suppliers(search: str | None = None,
-                         is_active: bool | None = Query(None, alias="isActive"),
-                         page: int = Query(1, ge=1),
-                         limit: int = Query(20, ge=1, le=100),
-                         user=Depends(require_roles(*VIEW)), db=Depends(get_db)):
-    items, total, limit = await supplier_service.list_suppliers(db, search, is_active, page, limit)
-    return paginated(
-        items=items,
-        page=page,
-        total=total,
-        message="OK"
-    )
+router = APIRouter(prefix="/suppliers", tags=["suppliers"], responses=ERROR_RESPONSES)
+viewers = require_roles(Role.LOGISTIK, Role.OWNER)
+logistik_only = require_roles(Role.LOGISTIK)
 
 
-@router.get("/{id}")
-async def get_supplier(id: str, user=Depends(require_roles(*VIEW)), db=Depends(get_db)):
-    return ok(await supplier_service.get(db, id))
+@router.get("", response_model=PaginatedResponse[SupplierOut])
+async def list_suppliers(
+    page: PageParams = Depends(),
+    search: str | None = Query(None, max_length=64),
+    is_active: bool | None = Query(None, alias="isActive"),
+    _: CurrentUser = Depends(viewers),
+    db: AsyncDatabase = Depends(get_db),
+):
+    items, total = await supplier_service.list_suppliers(db, page, search, is_active)
+    return paginated(items, page, total)
 
 
-@router.post("", status_code=201)
-async def create_supplier(body: SupplierCreate,
-                          user=Depends(require_roles(*EDIT)), db=Depends(get_db)):
+@router.get("/{supplier_id}", response_model=ApiResponse[SupplierOut])
+async def get_supplier(
+    supplier_id: str, _: CurrentUser = Depends(viewers), db: AsyncDatabase = Depends(get_db)
+):
+    return ok(await supplier_service.get_supplier(db, supplier_id))
+
+
+@router.post("", status_code=201, response_model=ApiResponse[SupplierOut])
+async def create_supplier(
+    body: SupplierCreate, user: CurrentUser = Depends(logistik_only), db: AsyncDatabase = Depends(get_db)
+):
     return ok(await supplier_service.create(db, user, body), "Supplier berhasil dibuat")
 
 
-@router.put("/{id}")
-async def update_supplier(id: str, body: SupplierUpdate,
-                          user=Depends(require_roles(*EDIT)), db=Depends(get_db)):
-    return ok(await supplier_service.update(db, user, id, body), "Supplier berhasil diubah")
+@router.put("/{supplier_id}", response_model=ApiResponse[SupplierOut])
+async def update_supplier(
+    supplier_id: str,
+    body: SupplierUpdate,
+    user: CurrentUser = Depends(logistik_only),
+    db: AsyncDatabase = Depends(get_db),
+):
+    return ok(await supplier_service.update(db, user, supplier_id, body), "Supplier berhasil diperbarui")
 
 
-@router.patch("/{id}/status")
-async def supplier_status(id: str, body: SupplierStatus,
-                          user=Depends(require_roles(*EDIT)), db=Depends(get_db)):
-    return ok(await supplier_service.set_status(db, user, id, body.is_active), "Status supplier diubah")
+@router.patch("/{supplier_id}/status", response_model=ApiResponse[SupplierOut])
+async def set_supplier_status(
+    supplier_id: str,
+    body: SupplierStatusUpdate,
+    user: CurrentUser = Depends(logistik_only),
+    db: AsyncDatabase = Depends(get_db),
+):
+    result = await supplier_service.set_status(db, user, supplier_id, body)
+    return ok(
+        result, "Supplier berhasil diaktifkan" if result.is_active else "Supplier berhasil dinonaktifkan"
+    )

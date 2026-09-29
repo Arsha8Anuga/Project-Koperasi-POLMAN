@@ -1,9 +1,23 @@
-"""Semua router v1 didaftarkan di sini. BE-2/BE-3: tambahkan import + include_router
-modul kalian di bagian masing-masing (satu baris per modul, supaya konflik merge kecil)."""
+"""Semua router v1 didaftarkan di sini. Tambah modul baru = satu baris import + satu include_router
+di bagian pemiliknya (supaya konflik merge kecil)."""
 
 from fastapi import APIRouter
 
-from app.api.v1 import audit_logs, auth, dashboard, members, users, categories, products, suppliers, restocks, stock
+from app.api.v1 import (
+    audit_logs,
+    auth,
+    categories,
+    dashboard,
+    members,
+    products,
+    reports,
+    restocks,
+    sales,
+    stock,
+    suppliers,
+    transactions,
+    users,
+)
 
 api_router = APIRouter()
 
@@ -14,11 +28,14 @@ api_router.include_router(members.router)
 api_router.include_router(audit_logs.router)
 api_router.include_router(dashboard.router)
 
-# --- BE-2 --- (categories, products, suppliers, restocks, stock, reports/stock)
+# --- BE-2 ---
 api_router.include_router(categories.router)
 api_router.include_router(products.router)
 api_router.include_router(suppliers.router)
 api_router.include_router(restocks.router)
-api_router.include_router(stock.router)      # tanpa prefix, path ditulis lengkap di stock.py
+api_router.include_router(stock.router)  # /stock/movements + /reports/stock
 
-# --- BE-3 --- (sales, transactions, reports)
+# --- BE-3 ---
+api_router.include_router(sales.router)
+api_router.include_router(transactions.router)
+api_router.include_router(reports.router)

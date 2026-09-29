@@ -3,5 +3,9 @@
   "references": [
     { "path": "./tsconfig.app.json" },
     { "path": "./tsconfig.node.json" }
-  ]
+  ],
+  // dibaca CLI shadcn-vue untuk alias "@/..." (lihat components.json)
+  "compilerOptions": {
+    "paths": { "@/*": ["./src/*"] }
+  }
 }

@@ -12,8 +12,7 @@ from typing import Any
 
 from bson import ObjectId
 
-from app.utils.datetime_utils import TZ_NAME
-from app.utils.mongo_ids import id_variants
+from app.utils.time import TZ_NAME
 
 # Format label per granularity. Untuk minggu, labelnya adalah tanggal hari Senin.
 PERIOD_FORMATS = {
@@ -46,9 +45,7 @@ async def _run(db, pipeline: list[dict]) -> list[dict]:
     return await cursor.to_list(length=None)
 
 
-async def cashflow_rows(
-    db, start_utc: datetime, end_utc: datetime, granularity: str
-) -> list[dict]:
+async def cashflow_rows(db, start_utc: datetime, end_utc: datetime, granularity: str) -> list[dict]:
     """Arus kas: pemasukan (total SALE) dan pengeluaran (total RESTOCK) per periode."""
     pipeline = [
         {
@@ -61,12 +58,8 @@ async def cashflow_rows(
         {
             "$group": {
                 "_id": _period_expression(granularity),
-                "income": {
-                    "$sum": {"$cond": [{"$eq": ["$type", "SALE"]}, "$total", 0]}
-                },
-                "expense": {
-                    "$sum": {"$cond": [{"$eq": ["$type", "RESTOCK"]}, "$total", 0]}
-                },
+                "income": {"$sum": {"$cond": [{"$eq": ["$type", "SALE"]}, "$total", 0]}},
+                "expense": {"$sum": {"$cond": [{"$eq": ["$type", "RESTOCK"]}, "$total", 0]}},
             }
         },
         {"$sort": {"_id": 1}},
@@ -74,9 +67,7 @@ async def cashflow_rows(
     return await _run(db, pipeline)
 
 
-async def gross_profit_rows(
-    db, start_utc: datetime, end_utc: datetime, granularity: str
-) -> list[dict]:
+async def gross_profit_rows(db, start_utc: datetime, end_utc: datetime, granularity: str) -> list[dict]:
     """Laba kotor: pendapatan (subtotal item) dan HPP (quantity x costPrice) per periode."""
     pipeline = [
         {
@@ -108,14 +99,9 @@ async def gross_profit_rows(
 
 async def find_product_ids_by_category(db, category_id: ObjectId) -> list[ObjectId | str]:
     """Ambil id semua produk dalam satu kategori (untuk filter best seller)."""
-    cursor = db.products.find(
-        {"categoryId": {"$in": id_variants(category_id)}}, {"_id": 1}
-    )
+    cursor = db.products.find({"categoryId": category_id}, {"_id": 1})
     docs = await cursor.to_list(length=None)
-    ids: list[ObjectId | str] = []
-    for doc in docs:
-        ids.extend(id_variants(doc["_id"]))
-    return ids
+    return [doc["_id"] for doc in docs]
 
 
 async def best_seller_rows(

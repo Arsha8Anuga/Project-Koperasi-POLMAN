@@ -22,8 +22,8 @@ from app.schemas.report import (
     GrossProfitReport,
     GrossProfitTotals,
 )
-from app.utils.datetime_utils import today_wib, validate_date_order, wib_range_to_utc
-from app.utils.mongo_ids import parse_object_id
+from app.utils.objectid import optional_object_id
+from app.utils.time import today_wib, validate_date_order, wib_range_to_utc
 
 # Batas rentang agar response tidak terlalu besar.
 MAX_RANGE_DAYS = 3660
@@ -113,9 +113,7 @@ def compute_margin(gross_profit: int, revenue: int) -> float:
 # ---------------------------------------------------------------------------
 
 
-async def cashflow(
-    db, granularity: Granularity, from_date: date | None, to_date: date | None
-) -> dict:
+async def cashflow(db, granularity: Granularity, from_date: date | None, to_date: date | None) -> dict:
     start, end = resolve_period(granularity, from_date, to_date)
     start_utc, end_utc = wib_range_to_utc(start, end)
     rows = await report_repository.cashflow_rows(db, start_utc, end_utc, granularity.value)
@@ -130,25 +128,19 @@ async def cashflow(
         expense = int(row.get("expense", 0))
         total_income += income
         total_expense += expense
-        buckets.append(
-            CashflowBucket(period=label, income=income, expense=expense, net=income - expense)
-        )
+        buckets.append(CashflowBucket(period=label, income=income, expense=expense, net=income - expense))
 
     report = CashflowReport(
         granularity=granularity,
         from_date=start,
         to_date=end,
         buckets=buckets,
-        totals=CashflowTotals(
-            income=total_income, expense=total_expense, net=total_income - total_expense
-        ),
+        totals=CashflowTotals(income=total_income, expense=total_expense, net=total_income - total_expense),
     )
     return report.model_dump(by_alias=True, mode="json")
 
 
-async def gross_profit(
-    db, granularity: Granularity, from_date: date | None, to_date: date | None
-) -> dict:
+async def gross_profit(db, granularity: Granularity, from_date: date | None, to_date: date | None) -> dict:
     start, end = resolve_period(granularity, from_date, to_date)
     start_utc, end_utc = wib_range_to_utc(start, end)
     rows = await report_repository.gross_profit_rows(db, start_utc, end_utc, granularity.value)
@@ -203,14 +195,7 @@ async def best_sellers(
 
     product_ids = None
     if category_id:
-        category_oid = parse_object_id(category_id)
-        if category_oid is None:
-            raise AppError(
-                422,
-                "VALIDATION_ERROR",
-                "Format ID tidak valid",
-                [{"field": "categoryId", "message": "ID harus berupa 24 karakter heksadesimal"}],
-            )
+        category_oid = optional_object_id(category_id, "categoryId")
         product_ids = await report_repository.find_product_ids_by_category(db, category_oid)
 
     rows = await report_repository.best_seller_rows(db, start_utc, end_utc, limit, product_ids)

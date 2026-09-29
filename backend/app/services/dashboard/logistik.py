@@ -1,16 +1,20 @@
-"""Dashboard LOGISTIK — milik BE-2.
-
-TODO(BE-2): ganti angka 0 dengan hitungan sungguhan:
-  activeProducts     = produk isActive=true
-  lowStockCount      = aktif, 0 < stock <= minimumStock
-  outOfStockCount    = aktif, stock = 0
-  restocksThisMonth  = transaksi RESTOCK sejak tanggal 1 bulan ini (WIB)
-"""
+"""Dashboard LOGISTIK — milik BE-2."""
 
 from pymongo.asynchronous.database import AsyncDatabase
 
+from app.repositories import product_repo, transaction_repository
 from app.schemas.dashboard import LogistikSummary
+from app.utils.time import today_wib, wib_month_start_utc
 
 
 async def logistik_summary(db: AsyncDatabase) -> LogistikSummary:
-    return LogistikSummary(active_products=0, low_stock_count=0, out_of_stock_count=0, restocks_this_month=0)
+    counts = await product_repo.count_by_stock_status(db, {"isActive": True})
+    restock_filter = transaction_repository.build_filter(
+        tx_type="RESTOCK", start_utc=wib_month_start_utc(today_wib())
+    )
+    return LogistikSummary(
+        active_products=sum(counts.values()),
+        low_stock_count=counts["LOW"],
+        out_of_stock_count=counts["OUT"],
+        restocks_this_month=await transaction_repository.count(db, restock_filter),
+    )

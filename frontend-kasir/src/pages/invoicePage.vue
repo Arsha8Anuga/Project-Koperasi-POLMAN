@@ -1,95 +1,118 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import InvoiceView from '../components/invoice/InvoiceView.vue'
-import { usePdf } from '../composables/usePdf'
-import { salesApi } from '../services/salesApi'
-import type { Transaction } from '../types/transaction'
+import { ArrowLeftIcon, CircleAlertIcon, CircleCheckIcon, DownloadIcon, PrinterIcon, ShoppingCartIcon } from '@lucide/vue'
+import { onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { toast } from 'vue-sonner'
+import InvoiceView from '@/components/invoice/InvoiceView.vue'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Spinner } from '@/components/ui/spinner'
+import { usePdf } from '@/composables/usePdf'
+import { errorMessage } from '@/services/api'
+import { salesApi } from '@/services/salesApi'
+import type { Sale } from '@/types'
+import { formatRupiah } from '@/utils/format'
 
 const route = useRoute()
-const router = useRouter()
-
-const transaction = ref<Transaction | null>(null)
-const loading = ref(true)
-const loadError = ref('')
-
-const invoiceEl = ref<HTMLElement | null>(null)
-const downloading = ref(false)
-const errorMsg = ref('')
 const { download } = usePdf()
+
+const sale = ref<Sale | null>(null)
+const loading = ref(true)
+const error = ref('')
+const receipt = ref<HTMLElement | null>(null)
+const downloading = ref(false)
+const isNew = route.query.new === '1'
 
 onMounted(async () => {
   try {
-    transaction.value = await salesApi.getById(route.params.id as string)
+    sale.value = await salesApi.get(String(route.params.id))
   } catch (e) {
-    loadError.value = e instanceof Error ? e.message : 'Transaksi tidak ditemukan'
+    error.value = errorMessage(e, 'Transaksi tidak ditemukan')
   } finally {
     loading.value = false
   }
 })
 
+function printReceipt() {
+  window.print()
+}
+
 async function downloadPdf() {
-  if (!invoiceEl.value || downloading.value || !transaction.value) return
+  if (!receipt.value || !sale.value || downloading.value) return
   downloading.value = true
-  errorMsg.value = ''
   try {
-    await download(invoiceEl.value, `${transaction.value.code}.pdf`)
+    await download(receipt.value, `${sale.value.code}.pdf`)
   } catch {
-    errorMsg.value = 'Gagal membuat PDF. Coba lagi.'
+    toast.error('Gagal membuat PDF', { description: 'Gunakan tombol Cetak lalu pilih "Simpan sebagai PDF".' })
   } finally {
     downloading.value = false
   }
 }
-
-function printInvoice() {
-  window.print()
-}
 </script>
 
 <template>
-  <div class="mx-auto max-w-md px-4 py-6 text-center">
-    <p v-if="loading" class="text-sm text-slate-500">Memuat invoice...</p>
-    <p v-else-if="loadError" class="text-sm font-medium text-rose-500">{{ loadError }}</p>
-
-    <template v-else-if="transaction">
-      <div ref="invoiceEl" class="print-area">
-        <InvoiceView :transaction="transaction" />
+  <div class="h-full overflow-y-auto">
+    <div class="mx-auto max-w-xl px-4 py-6 sm:px-6">
+      <div class="no-print mb-5 flex items-center gap-3">
+        <Button as-child variant="ghost" size="icon" aria-label="Kembali">
+          <RouterLink :to="{ name: 'history' }"><ArrowLeftIcon class="size-5" /></RouterLink>
+        </Button>
+        <h1 class="text-2xl font-bold">Struk</h1>
       </div>
 
-      <div class="mt-4 flex flex-wrap justify-center gap-2">
-        <button
-          type="button"
-          :disabled="downloading"
-          @click="downloadPdf"
-          class="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-md transition hover:bg-indigo-700 disabled:bg-slate-300"
-        >
-          {{ downloading ? 'Membuat PDF...' : 'Unduh PDF' }}
-        </button>
-        <button
-          type="button"
-          @click="printInvoice"
-          class="rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-200"
-        >
-          Cetak
-        </button>
-        <button
-          type="button"
-          @click="router.push('/history')"
-          class="rounded-xl bg-indigo-50 px-4 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100"
-        >
-          Kembali ke Riwayat
-        </button>
-      </div>
+      <Skeleton v-if="loading" class="mx-auto h-[28rem] w-[300px] rounded-xl" />
 
-      <p v-if="errorMsg" class="mt-2 text-sm font-medium text-rose-500">{{ errorMsg }}</p>
-    </template>
+      <Alert v-else-if="error" variant="destructive">
+        <CircleAlertIcon />
+        <AlertDescription>{{ error }}</AlertDescription>
+      </Alert>
+
+      <template v-else-if="sale">
+        <Alert v-if="isNew" variant="success" class="no-print mb-5">
+          <CircleCheckIcon />
+          <AlertTitle>Transaksi berhasil — {{ sale.code }}</AlertTitle>
+          <AlertDescription v-if="sale.payment.method === 'CASH'" class="num">
+            <p>Kembalian: <strong>{{ formatRupiah(sale.payment.change) }}</strong></p>
+          </AlertDescription>
+        </Alert>
+
+        <div class="rounded-xl bg-muted p-5 sm:p-8">
+          <div ref="receipt" class="print-area">
+            <InvoiceView :sale="sale" />
+          </div>
+        </div>
+
+        <div class="no-print mt-5 grid grid-cols-3 gap-2">
+          <Button variant="outline" :disabled="downloading" @click="downloadPdf">
+            <Spinner v-if="downloading" />
+            <DownloadIcon v-else /> PDF
+          </Button>
+          <Button variant="outline" @click="printReceipt"><PrinterIcon /> Cetak</Button>
+          <Button as-child>
+            <RouterLink :to="{ name: 'pos' }"><ShoppingCartIcon /> Transaksi baru</RouterLink>
+          </Button>
+        </div>
+      </template>
+    </div>
   </div>
 </template>
-
 <style>
 @media print {
-  body * { visibility: hidden; }
-  .print-area, .print-area * { visibility: visible; }
-  .print-area { position: absolute; left: 0; top: 0; }
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  .receipt {
+    box-shadow: none !important;
+  }
 }
 </style>

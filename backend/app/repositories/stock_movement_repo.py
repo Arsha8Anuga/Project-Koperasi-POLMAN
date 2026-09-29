@@ -1,21 +1,21 @@
-from datetime import datetime
-from app.utils.serialize import to_oid
+from typing import Any
+
+from pymongo.asynchronous.database import AsyncDatabase
+
+from app.repositories.base import find_page
+from app.utils.pagination import PageParams
 
 
-async def find_page(db, product_id: str | None, type_: str | None,
-                    start: datetime | None, end: datetime | None,
-                    skip: int, limit: int):
-    q = {}
-    if product_id:
-        q["productId"] = to_oid(product_id)
-    if type_:
-        q["type"] = type_
-    if start or end:
-        q["createdAt"] = {}
-        if start:
-            q["createdAt"]["$gte"] = start
-        if end:
-            q["createdAt"]["$lt"] = end          # batas atas eksklusif
-    total = await db.stock_movements.count_documents(q)
-    docs = await db.stock_movements.find(q).sort("createdAt", -1).skip(skip).limit(limit).to_list()
-    return docs, total
+def _col(db: AsyncDatabase):
+    return db["stock_movements"]
+
+
+async def insert_many(db: AsyncDatabase, docs: list[dict[str, Any]], session=None) -> None:
+    if docs:
+        await _col(db).insert_many(docs, session=session)
+
+
+async def list_page(
+    db: AsyncDatabase, filter: dict[str, Any], page: PageParams
+) -> tuple[list[dict[str, Any]], int]:
+    return await find_page(_col(db), filter, page, sort=[("createdAt", -1), ("_id", -1)])

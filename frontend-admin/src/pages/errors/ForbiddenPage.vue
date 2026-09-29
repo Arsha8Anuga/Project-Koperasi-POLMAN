@@ -1,7 +1,21 @@
+<script setup lang="ts">
+import { ShieldAlertIcon } from '@lucide/vue'
+import { Button } from '@/components/ui/button'
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+</script>
+
 <template>
-  <div class="flex min-h-screen flex-col items-center justify-center gap-2">
-    <h1 class="text-5xl font-bold">403</h1>
-    <p class="text-gray-500">Kamu tidak punya akses ke halaman ini.</p>
-    <RouterLink to="/" class="mt-4 text-blue-600 hover:underline">Kembali ke dashboard</RouterLink>
-  </div>
+  <Empty class="min-h-screen">
+    <EmptyHeader>
+      <EmptyMedia variant="icon" class="size-16 bg-destructive/10 text-destructive [&_svg:not([class*='size-'])]:size-8">
+        <ShieldAlertIcon />
+      </EmptyMedia>
+      <p class="num text-5xl font-extrabold tracking-tight">403</p>
+      <EmptyTitle class="text-xl font-bold">Akses ditolak</EmptyTitle>
+      <EmptyDescription>Akun Anda tidak memiliki izin untuk membuka halaman ini.</EmptyDescription>
+    </EmptyHeader>
+    <EmptyContent>
+      <Button as-child><RouterLink :to="{ name: 'dashboard' }">Kembali ke dashboard</RouterLink></Button>
+    </EmptyContent>
+  </Empty>
 </template>

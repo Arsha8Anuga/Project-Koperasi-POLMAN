@@ -1,35 +1,30 @@
-import { createRouter, createWebHistory } from 'vue-router';
-import { useAuthStore } from '../stores/auth';
-import LoginPage from '../pages/LoginPage.vue';
-import PosPage from '../pages/PosPage.vue';
-import PaymentPage from '../pages/PaymentPage.vue';
-import InvoicePage from '../pages/InvoicePage.vue';
-import HistoryPage from '../pages/HistoryPage.vue';
-
-const routes = [
-  { path: '/', redirect: '/pos' },
-  { path: '/login', name: 'Login', component: LoginPage },
-  { path: '/pos', name: 'Pos', component: PosPage, meta: { requiresAuth: true } },
-  { path: '/payment', name: 'Payment', component: PaymentPage, meta: { requiresAuth: true } },
-  { path: '/invoice/:id', name: 'Invoice', component: InvoicePage, meta: { requiresAuth: true } },
-  { path: '/history', name: 'History', component: HistoryPage, meta: { requiresAuth: true } },
-];
+import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(),
-  routes,
-});
+  routes: [
+    { path: '/login', name: 'login', component: () => import('@/pages/LoginPage.vue'), meta: { public: true } },
+    {
+      path: '/',
+      component: () => import('@/layouts/PosLayout.vue'),
+      children: [
+        { path: '', redirect: { name: 'pos' } },
+        { path: 'pos', name: 'pos', component: () => import('@/pages/PosPage.vue') },
+        { path: 'payment', name: 'payment', component: () => import('@/pages/PaymentPage.vue') },
+        { path: 'invoice/:id', name: 'invoice', component: () => import('@/pages/InvoicePage.vue') },
+        { path: 'history', name: 'history', component: () => import('@/pages/HistoryPage.vue') },
+      ],
+    },
+    { path: '/:pathMatch(.*)*', redirect: { name: 'pos' } },
+  ],
+})
 
 router.beforeEach((to) => {
-  const authStore = useAuthStore();
+  const auth = useAuthStore()
+  if (to.meta.public) return auth.isAuthenticated && to.name === 'login' ? { name: 'pos' } : true
+  if (!auth.isAuthenticated) return { name: 'login', query: { redirect: to.fullPath } }
+  return true
+})
 
-  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    return '/login';
-  }
-  
-  if (to.path === '/login' && authStore.isAuthenticated) {
-    return '/pos';
-  }
-});
-
-export default router;
+export default router

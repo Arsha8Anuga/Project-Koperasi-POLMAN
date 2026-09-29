@@ -1,85 +1,148 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
-import DataTable, { type Column } from '@/components/table/DataTable.vue'
+import { PlusIcon, SquarePenIcon } from '@lucide/vue'
+import { onMounted, ref } from 'vue'
+import ActiveBadge from '@/components/common/ActiveBadge.vue'
+import ConfirmModal from '@/components/common/ConfirmModal.vue'
+import ErrorAlert from '@/components/common/ErrorAlert.vue'
+import FilterToggle from '@/components/common/FilterToggle.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import SearchInput from '@/components/common/SearchInput.vue'
+import StockBadge from '@/components/common/StockBadge.vue'
+import DataTable from '@/components/table/DataTable.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
+import type { Column } from '@/components/table/types'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { usePagination } from '@/composables/usePagination'
-import { productApi } from '@/services/productApi'
-import type { Product } from '@/types/api'
+import { useToast } from '@/composables/useToast'
+import { categoryApi, productApi } from '@/services/api'
+import { errorMessage } from '@/services/apiClient'
+import type { Category, Product, StockStatus } from '@/types/api'
 import { formatRupiah } from '@/utils/format'
 
-const { page, limit, search, setPage, setSearch } = usePagination()
+const toast = useToast()
+const categories = ref<Category[]>([])
 
-const rows = ref<Product[]>([])
-const meta = ref<{ page: number; limit: number; total: number; totalPages: number }>()
-const loading = ref(false)
-const errorMsg = ref('')
+const list = usePagination<
+  Product,
+  { search: string; categoryId: string; stockStatus: StockStatus | ''; isActive: boolean | ''; sort: 'name' | 'stock' | '-stock' | '-createdAt' }
+>((q) => productApi.list(q), { search: '', categoryId: '', stockStatus: '', isActive: '', sort: 'name' })
 
-const columns: Column<Product>[] = [
-  { key: 'sku', label: 'SKU' },
-  { key: 'name', label: 'Nama' },
-  { key: 'categoryName', label: 'Kategori' },
-  { key: 'sellPrice', label: 'Harga Jual', render: (r) => formatRupiah(r.sellPrice) },
-  { key: 'stock', label: 'Stok' },
-  { key: 'stockStatus', label: 'Status' },
-  { key: 'id', label: 'Aksi' },
+onMounted(async () => {
+  list.load()
+  categories.value = await categoryApi.list().catch(() => [])
+})
+
+const activeOptions: { value: boolean | ''; label: string }[] = [
+  { value: '', label: 'Semua' },
+  { value: true, label: 'Aktif' },
+  { value: false, label: 'Nonaktif' },
 ]
 
-async function load() {
-  loading.value = true
-  errorMsg.value = ''
+const columns: Column[] = [
+  { key: 'name', label: 'Produk' },
+  { key: 'categoryName', label: 'Kategori' },
+  { key: 'sellingPrice', label: 'Harga jual', align: 'right' },
+  { key: 'costPrice', label: 'HPP', align: 'right' },
+  { key: 'stock', label: 'Stok', align: 'right' },
+  { key: 'isActive', label: 'Status' },
+  { key: 'actions', label: '', align: 'right' },
+]
+
+const target = ref<Product | null>(null)
+const toggling = ref(false)
+async function toggle() {
+  if (!target.value) return
+  toggling.value = true
   try {
-    const res = await productApi.list({ page: page.value, limit: limit.value, search: search.value })
-    rows.value = res.data
-    meta.value = res.meta
+    const p = await productApi.setStatus(target.value.id, !target.value.isActive)
+    toast.success(`${p.name} ${p.isActive ? 'diaktifkan' : 'dinonaktifkan'}`)
+    target.value = null
+    list.reload()
   } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : 'Gagal memuat produk'
+    toast.error(errorMessage(e))
   } finally {
-    loading.value = false
+    toggling.value = false
   }
-}
-
-onMounted(load)
-watch([page, limit, search], load)
-
-function statusBadge(status: Product['stockStatus']) {
-  return {
-    AMAN: 'bg-green-100 text-green-700',
-    MENIPIS: 'bg-yellow-100 text-yellow-700',
-    HABIS: 'bg-red-100 text-red-700',
-  }[status]
 }
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <input
-        :value="search"
-        type="text"
-        placeholder="Cari nama produk..."
-        class="w-72 rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-        @input="setSearch(($event.target as HTMLInputElement).value)"
-      />
-      <RouterLink
-        to="/logistik/products/new"
-        class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-      >
-        + Produk Baru
-      </RouterLink>
+  <PageHeader title="Produk" subtitle="Stok hanya bertambah lewat restock dan berkurang lewat penjualan.">
+    <Button as-child>
+      <RouterLink :to="{ name: 'product-new' }"><PlusIcon /> Produk baru</RouterLink>
+    </Button>
+  </PageHeader>
+
+  <Card class="gap-0 overflow-hidden py-0">
+    <div class="flex flex-wrap items-center gap-2 border-b p-4">
+      <SearchInput v-model="list.filters.search" placeholder="Cari nama, SKU, atau barcode" />
+      <NativeSelect v-model="list.filters.categoryId" aria-label="Kategori">
+        <NativeSelectOption value="">Semua kategori</NativeSelectOption>
+        <NativeSelectOption v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</NativeSelectOption>
+      </NativeSelect>
+      <NativeSelect v-model="list.filters.stockStatus" aria-label="Status stok">
+        <NativeSelectOption value="">Semua stok</NativeSelectOption>
+        <NativeSelectOption value="OK">Aman</NativeSelectOption>
+        <NativeSelectOption value="LOW">Menipis</NativeSelectOption>
+        <NativeSelectOption value="OUT">Habis</NativeSelectOption>
+      </NativeSelect>
+      <NativeSelect v-model="list.filters.sort" aria-label="Urutkan">
+        <NativeSelectOption value="name">Nama A–Z</NativeSelectOption>
+        <NativeSelectOption value="stock">Stok terkecil</NativeSelectOption>
+        <NativeSelectOption value="-stock">Stok terbanyak</NativeSelectOption>
+        <NativeSelectOption value="-createdAt">Terbaru</NativeSelectOption>
+      </NativeSelect>
+      <FilterToggle v-model="list.filters.isActive" :options="activeOptions" label="Status produk" />
     </div>
 
-    <p v-if="errorMsg" class="text-sm text-red-600">{{ errorMsg }}</p>
+    <ErrorAlert v-if="list.error.value" :message="list.error.value" class="m-4 w-auto" />
 
-    <DataTable :columns="columns" :rows="rows" :loading="loading" :meta="meta" @update:page="setPage">
-      <template #cell-stockStatus="{ row }">
-        <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="statusBadge(row.stockStatus)">
-          {{ row.stockStatus }}
-        </span>
+    <DataTable :columns="columns" :rows="list.rows.value" :loading="list.loading.value" row-key="id" empty="Belum ada produk">
+      <template #cell-name="{ row }">
+        <p class="font-semibold">{{ row.name }}</p>
+        <p class="font-mono text-xs text-muted-foreground">
+          {{ row.sku }}<template v-if="row.barcode"> · {{ row.barcode }}</template>
+        </p>
       </template>
-      <template #cell-id="{ row }">
-        <RouterLink :to="`/logistik/products/${row.id}`" class="text-blue-600 hover:underline">
-          Ubah
-        </RouterLink>
+      <template #cell-categoryName="{ row }"><span class="text-muted-foreground">{{ row.categoryName ?? '—' }}</span></template>
+      <template #cell-sellingPrice="{ row }"><span class="font-semibold">{{ formatRupiah(row.sellingPrice) }}</span></template>
+      <template #cell-costPrice="{ row }"><span class="text-muted-foreground">{{ formatRupiah(row.costPrice) }}</span></template>
+      <template #cell-stock="{ row }">
+        <div class="flex items-center justify-end gap-2">
+          <span class="font-semibold">{{ row.stock }}</span>
+          <StockBadge :status="row.stockStatus" />
+        </div>
+        <p class="text-right text-xs text-muted-foreground">min. {{ row.minimumStock }} {{ row.unit }}</p>
+      </template>
+      <template #cell-isActive="{ row }"><ActiveBadge :active="row.isActive" /></template>
+      <template #cell-actions="{ row }">
+        <div class="flex justify-end gap-1">
+          <Button as-child variant="ghost" size="sm">
+            <RouterLink :to="{ name: 'product-edit', params: { id: row.id } }"><SquarePenIcon /> Ubah</RouterLink>
+          </Button>
+          <Button variant="ghost" size="sm" :class="row.isActive && 'text-destructive hover:text-destructive'" @click="target = row">
+            {{ row.isActive ? 'Nonaktifkan' : 'Aktifkan' }}
+          </Button>
+        </div>
       </template>
     </DataTable>
-  </div>
+    <TablePagination v-model="list.page.value" :meta="list.meta.value" :loading="list.loading.value" />
+  </Card>
+
+  <ConfirmModal
+    :open="!!target"
+    :title="target?.isActive ? 'Nonaktifkan produk?' : 'Aktifkan produk?'"
+    :message="
+      target?.isActive
+        ? `${target?.name} tidak akan muncul di aplikasi kasir. Riwayat transaksinya tetap tersimpan.`
+        : `${target?.name} akan kembali muncul di aplikasi kasir.`
+    "
+    :confirm-text="target?.isActive ? 'Nonaktifkan' : 'Aktifkan'"
+    :danger="target?.isActive"
+    :loading="toggling"
+    @confirm="toggle"
+    @cancel="target = null"
+  />
 </template>

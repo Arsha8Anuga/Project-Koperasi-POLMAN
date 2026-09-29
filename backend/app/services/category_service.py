@@ -1,31 +1,74 @@
+from pymongo.asynchronous.database import AsyncDatabase
+from pymongo.errors import DuplicateKeyError
+
+from app.core.enums import AuditAction, AuditModule
+from app.core.errors import duplicate, not_found
 from app.repositories import category_repo
-from app.schemas.category import CategoryOut
-from app.utils.serialize import to_json
-from app.utils.time import utcnow            # sesuaikan
-from app.services import audit_service as audit_ser               # punya BE-1
-from app.core.errors import AppError
+from app.schemas.auth import CurrentUser
+from app.schemas.category import CategoryCreate, CategoryOut, CategoryUpdate
+from app.services import audit_service as audit
+from app.utils.objectid import parse_object_id
+from app.utils.time import utcnow
 
-def _out(doc):
-    return CategoryOut.model_validate(to_json(doc)).model_dump(by_alias=True)
+_NOT_FOUND = "Kategori tidak ditemukan"
 
-async def list_all(db, is_active):
-    return [_out(d) for d in await category_repo.find_all(db, is_active)]
 
-async def create(db, user, body):
+async def list_categories(db: AsyncDatabase, is_active: bool | None) -> list[CategoryOut]:
+    filter = {} if is_active is None else {"isActive": is_active}
+    return [CategoryOut.model_validate(d) for d in await category_repo.find_all(db, filter)]
+
+
+async def create(db: AsyncDatabase, actor: CurrentUser, body: CategoryCreate) -> CategoryOut:
     now = utcnow()
-    doc = {"name": body.name.strip(), "description": body.description,
-           "isActive": True, "createdAt": now, "updatedAt": now}
-    doc = await category_repo.insert(db, doc)
-    await audit.log(db, user, "CREATE", "CATEGORY", doc["_id"], f"Membuat kategori {doc['name']}")
-    return _out(doc)
+    doc = {
+        "name": body.name,
+        "description": body.description,
+        "isActive": True,
+        "createdAt": now,
+        "updatedAt": now,
+    }
+    try:
+        doc = await category_repo.insert(db, doc)
+    except DuplicateKeyError:
+        raise duplicate(f"Kategori '{body.name}' sudah ada", "name") from None
+    await audit.log(
+        db, actor, AuditAction.CREATE, AuditModule.CATEGORY, doc["_id"], f"Membuat kategori {body.name}"
+    )
+    return CategoryOut.model_validate(doc)
 
-async def update(db, user, id, body):
-    old = await category_repo.find_by_id(db, id)
-    if not old:
-        raise AppError(404, "NOT_FOUND", "Kategori tidak ditemukan")
-    doc = await category_repo.update(db, id, {
-        "name": body.name.strip(), "description": body.description,
-        "isActive": body.is_active, "updatedAt": utcnow()})
-    action = "UPDATE" if body.is_active == old["isActive"] else ("ACTIVATE" if body.is_active else "DEACTIVATE")
-    await audit.log(db, user, action, "CATEGORY", doc["_id"], f"Mengubah kategori {doc['name']}")
-    return _out(doc)
+
+async def update(
+    db: AsyncDatabase, actor: CurrentUser, category_id: str, body: CategoryUpdate
+) -> CategoryOut:
+    old = await category_repo.find_by_id(db, parse_object_id(category_id, _NOT_FOUND))
+    if old is None:
+        raise not_found(_NOT_FOUND)
+    try:
+        doc = await category_repo.update(
+            db,
+            old["_id"],
+            {
+                "name": body.name,
+                "description": body.description,
+                "isActive": body.is_active,
+                "updatedAt": utcnow(),
+            },
+        )
+    except DuplicateKeyError:
+        raise duplicate(f"Kategori '{body.name}' sudah ada", "name") from None
+
+    if body.name != old["name"] or body.description != old.get("description"):
+        await audit.log(
+            db,
+            actor,
+            AuditAction.UPDATE,
+            AuditModule.CATEGORY,
+            old["_id"],
+            f"Mengubah kategori {old['name']}"
+            + (f" menjadi {body.name}" if body.name != old["name"] else ""),
+        )
+    if body.is_active != old["isActive"]:
+        action = AuditAction.ACTIVATE if body.is_active else AuditAction.DEACTIVATE
+        verb = "Mengaktifkan" if body.is_active else "Menonaktifkan"
+        await audit.log(db, actor, action, AuditModule.CATEGORY, old["_id"], f"{verb} kategori {body.name}")
+    return CategoryOut.model_validate(doc)

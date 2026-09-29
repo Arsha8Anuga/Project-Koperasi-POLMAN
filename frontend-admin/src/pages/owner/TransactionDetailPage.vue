@@ -1,77 +1,64 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { ArrowLeftIcon } from '@lucide/vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { transactionApi } from '@/services/transactionApi'
+import ErrorAlert from '@/components/common/ErrorAlert.vue'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { transactionApi } from '@/services/api'
+import { errorMessage } from '@/services/apiClient'
 import type { Transaction } from '@/types/api'
 import { formatDateTime, formatRupiah } from '@/utils/format'
+import TransactionBody from './TransactionBody.vue'
 
 const route = useRoute()
-const tx = ref<Transaction | null>(null)
-const loading = ref(true)
-const errorMsg = ref('')
+const trx = ref<Transaction | null>(null)
+const error = ref('')
 
 onMounted(async () => {
   try {
-    tx.value = await transactionApi.get(route.params.id as string)
+    trx.value = await transactionApi.get(String(route.params.id))
   } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : 'Gagal memuat transaksi'
-  } finally {
-    loading.value = false
+    error.value = errorMessage(e, 'Transaksi tidak ditemukan')
   }
 })
+
+const grossProfit = computed(() =>
+  trx.value?.type === 'SALE'
+    ? trx.value.items.reduce((n, i) => n + i.subtotal - i.quantity * (i.costPrice ?? 0), 0)
+    : null,
+)
 </script>
 
 <template>
-  <div class="max-w-2xl space-y-4">
-    <RouterLink to="/owner/transactions" class="text-sm text-blue-600 hover:underline">← Kembali ke Riwayat</RouterLink>
+  <Button as-child variant="ghost" size="sm" class="mb-4 -ml-2">
+    <RouterLink :to="{ name: 'owner-transactions' }"><ArrowLeftIcon /> Riwayat transaksi</RouterLink>
+  </Button>
 
-    <p v-if="loading" class="text-sm text-gray-400">Memuat data...</p>
-    <p v-else-if="errorMsg" class="text-sm text-red-600">{{ errorMsg }}</p>
-
-    <div v-else-if="tx" class="space-y-6 rounded-xl border bg-white p-6">
-      <div class="flex items-start justify-between">
-        <div>
-          <h1 class="text-lg font-semibold">{{ tx.code }}</h1>
-          <p class="text-sm text-gray-500">{{ formatDateTime(tx.createdAt) }} · Kasir: {{ tx.cashierName }}</p>
-        </div>
-        <span class="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">{{ tx.paymentMethod }}</span>
-      </div>
-
-      <div class="overflow-hidden rounded-lg border">
-        <table class="w-full text-sm">
-          <thead class="border-b bg-gray-50 text-left text-gray-500">
-            <tr>
-              <th class="px-3 py-2 font-medium">Produk</th>
-              <th class="px-3 py-2 font-medium">Qty</th>
-              <th class="px-3 py-2 font-medium">Harga</th>
-              <th class="px-3 py-2 font-medium">Subtotal</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(item, i) in tx.items" :key="i" class="border-b last:border-0">
-              <td class="px-3 py-2">{{ item.productName }}</td>
-              <td class="px-3 py-2">{{ item.qty }}</td>
-              <td class="px-3 py-2">{{ formatRupiah(item.price) }}</td>
-              <td class="px-3 py-2">{{ formatRupiah(item.subtotal) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="space-y-1 text-sm">
-        <div class="flex justify-between font-semibold">
-          <span>Total</span>
-          <span>{{ formatRupiah(tx.total) }}</span>
-        </div>
-        <div v-if="tx.paymentMethod === 'CASH'" class="flex justify-between text-gray-600">
-          <span>Uang Diterima</span>
-          <span>{{ formatRupiah(tx.amountPaid ?? 0) }}</span>
-        </div>
-        <div v-if="tx.paymentMethod === 'CASH'" class="flex justify-between text-gray-600">
-          <span>Kembalian</span>
-          <span>{{ formatRupiah(tx.change ?? 0) }}</span>
-        </div>
-      </div>
-    </div>
+  <ErrorAlert v-if="error" :message="error" />
+  <div v-else-if="!trx" class="space-y-4">
+    <Skeleton class="h-16 w-72" />
+    <Skeleton class="h-72 w-full rounded-xl" />
   </div>
+
+  <template v-else>
+    <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <Badge :variant="trx.type === 'SALE' ? 'success' : 'soft'" class="mb-2">
+          {{ trx.type === 'SALE' ? 'Penjualan' : 'Restock' }}
+        </Badge>
+        <h1 class="font-mono text-2xl font-bold tracking-tight">{{ trx.code }}</h1>
+        <p class="mt-1 text-sm text-muted-foreground">{{ formatDateTime(trx.createdAt) }} · dibuat oleh {{ trx.createdBy.name }}</p>
+      </div>
+      <Card v-if="grossProfit !== null" class="py-3">
+        <CardContent class="px-5 text-right">
+          <p class="text-[13px] font-semibold text-muted-foreground">Laba kotor transaksi</p>
+          <p class="num text-xl font-extrabold text-success">{{ formatRupiah(grossProfit) }}</p>
+        </CardContent>
+      </Card>
+    </div>
+    <TransactionBody :trx="trx" />
+  </template>
 </template>

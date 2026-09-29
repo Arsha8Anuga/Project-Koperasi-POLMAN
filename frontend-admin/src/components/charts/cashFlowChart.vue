@@ -1,99 +1,63 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { Line } from 'vue-chartjs'
-import {
-  Chart as ChartJS, Title, Tooltip, Legend, LineElement, PointElement,
-  CategoryScale, LinearScale, Filler,
-} from 'chart.js'
-import { reportsApi } from '../../services/reportsApi'
-import { formatRupiah } from '../../utils/formatRupiah'
-import type { CashflowItem, ReportParams } from '../../types/report'
+import type { ChartData, ChartOptions } from 'chart.js'
+import { computed } from 'vue'
+import { Bar } from 'vue-chartjs'
+import { useChartTheme } from '@/composables/useChartTheme'
+import type { CashflowReport } from '@/types/api'
+import { formatRupiah } from '@/utils/format'
+import { compactRupiah, periodLabel } from './setup'
 
-ChartJS.register(Title, Tooltip, Legend, LineElement, PointElement, CategoryScale, LinearScale, Filler)
+const props = defineProps<{ report: CashflowReport }>()
+const t = useChartTheme()
 
-const items = ref<CashflowItem[]>([])
-const loading = ref(false)
-const errorMsg = ref('')
-
-async function load(params: ReportParams) {
-  loading.value = true
-  errorMsg.value = ''
-  try {
-    items.value = await reportsApi.cashflow(params)
-  } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : 'Terjadi kesalahan'
-  } finally {
-    loading.value = false
-  }
-}
-defineExpose({ load })
-
-const chartData = computed(() => ({
-  labels: items.value.map((i) => i.period),
+const data = computed<ChartData<'bar'>>(() => ({
+  labels: props.report.buckets.map((b) => periodLabel(b.period, props.report.granularity)),
   datasets: [
     {
-      label: 'Pemasukan',
-      data: items.value.map((i) => i.income),
-      borderColor: '#22c55e',
-      backgroundColor: 'rgba(34,197,94,0.1)',
-      tension: 0.4,
-      pointRadius: 0,
-      fill: true,
+      label: 'Pemasukan (penjualan)',
+      data: props.report.buckets.map((b) => b.income),
+      backgroundColor: t.value.navy,
+      borderRadius: 4,
+      maxBarThickness: 28,
     },
     {
-      label: 'Pengeluaran',
-      data: items.value.map((i) => i.expense),
-      borderColor: '#ef4444',
-      backgroundColor: 'rgba(239,68,68,0.1)',
-      tension: 0.4,
-      pointRadius: 0,
-      fill: true,
-    },
-    {
-      label: 'Net',
-      data: items.value.map((i) => i.net),
-      borderColor: '#334155',
-      backgroundColor: 'transparent',
-      tension: 0.4,
-      pointRadius: 0,
-      fill: false,
+      label: 'Pengeluaran (restock)',
+      data: props.report.buckets.map((b) => b.expense),
+      backgroundColor: t.value.steel,
+      borderRadius: 4,
+      maxBarThickness: 28,
     },
   ],
 }))
 
-const chartOptions = {
+const options = computed<ChartOptions<'bar'>>(() => ({
   responsive: true,
   maintainAspectRatio: false,
-  interaction: { mode: 'index' as const, intersect: false },
+  interaction: { mode: 'index', intersect: false },
   plugins: {
+    legend: { position: 'bottom', labels: { color: t.value.text } },
     tooltip: {
       callbacks: {
-        label: (ctx: any) => `${ctx.dataset.label}: ${formatRupiah(ctx.raw)}`,
+        label: (ctx) => `${ctx.dataset.label}: ${formatRupiah(ctx.parsed.y ?? 0)}`,
+        footer: (items) => {
+          const b = props.report.buckets[items[0]?.dataIndex ?? 0]
+          return b ? `Arus kas bersih: ${formatRupiah(b.net)}` : ''
+        },
       },
     },
   },
   scales: {
-    y: { beginAtZero: true },
+    x: { grid: { display: false }, ticks: { color: t.value.text, maxRotation: 0, autoSkipPadding: 12 } },
+    y: {
+      beginAtZero: true,
+      grid: { color: t.value.grid },
+      border: { display: false },
+      ticks: { color: t.value.text, callback: (v) => compactRupiah(v) },
+    },
   },
-}
+}))
 </script>
 
 <template>
-  <div class="card">
-    <h3>Arus Kas</h3>
-
-    <p v-if="loading">Memuat...</p>
-    <p v-else-if="errorMsg" class="warn">{{ errorMsg }}</p>
-    <p v-else-if="items.length === 0">Belum ada data.</p>
-
-    <div v-else style="height: 340px">
-      <Line :data="chartData" :options="chartOptions" />
-    </div>
-  </div>
+  <Bar :data="data" :options="options" />
 </template>
-
-<style scoped>
-.card { max-width: 640px; margin: 0 auto; padding: 16px; border: 1px solid #ccc; }
-h3 { margin-top: 0; text-align: center; }
-.warn { color: #c00; text-align: center; }
-</style>

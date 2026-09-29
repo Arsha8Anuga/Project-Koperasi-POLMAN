@@ -1,1 +1,180 @@
+/*
+ * Tema bersama Toko Koperasi (shadcn-vue) — ISI FILE INI IDENTIK di frontend-kasir & frontend-admin.
+ * Ubah di satu app → salin ke app lain.
+ *
+ * Nama token mengikuti konvensi shadcn (background, foreground, primary, muted, border, ...),
+ * jadi komponen di src/components/ui langsung ikut tema tanpa diubah.
+ * Palet: abu (latar) · biru navy (primary) · biru tua (sidebar & aksen).
+ * Tambahan di luar shadcn: success, warning (+ -soft) untuk status stok/laba.
+ *
+ * Mode gelap: class `dark` di <html> (composables/useTheme.ts).
+ * Pakai kelas semantik (bg-card, text-muted-foreground, border-border, bg-primary, ...),
+ * JANGAN warna mentah (bg-white, text-slate-700) supaya mode gelap otomatis benar.
+ */
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  color-scheme: light;
+  --radius: 0.75rem;
+
+  --background: #eef1f6;
+  --foreground: #0f1b33;
+  --card: #ffffff;
+  --card-foreground: #0f1b33;
+  --popover: #ffffff;
+  --popover-foreground: #0f1b33;
+
+  --primary: #1e3a6d;
+  --primary-foreground: #f8fafc;
+  --secondary: #e3e9f3;
+  --secondary-foreground: #1e3a6d;
+  --muted: #edf1f7;
+  --muted-foreground: #53607a;
+  --accent: #e3eaf7;
+  --accent-foreground: #16305e;
+  --destructive: #c42b3c;
+
+  --border: #d8dfea;
+  --input: #cbd4e2;
+  --ring: #2f5bb7;
+
+  --success: #0f7a4d;
+  --success-soft: #e1f3ea;
+  --warning: #9a5b04;
+  --warning-soft: #fcf1d8;
+
+  /* chart: gradasi navy → biru → abu */
+  --chart-1: #1e3a6d;
+  --chart-2: #3b6fd8;
+  --chart-3: #7ea4e8;
+  --chart-4: #94a3b8;
+  --chart-5: #0f7a4d;
+
+  /* sidebar tetap biru tua di mode terang */
+  --sidebar: #0f1d3a;
+  --sidebar-foreground: #c3cee1;
+  --sidebar-primary: #3b6fd8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1c3263;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1d2d52;
+  --sidebar-ring: #6d9cff;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --background: #0a1120;
+  --foreground: #e6ebf4;
+  --card: #111a2c;
+  --card-foreground: #e6ebf4;
+  --popover: #131e33;
+  --popover-foreground: #e6ebf4;
+
+  --primary: #4a7be0;
+  --primary-foreground: #ffffff;
+  --secondary: #1a2744;
+  --secondary-foreground: #dbe5f7;
+  --muted: #16213a;
+  --muted-foreground: #9aa7bf;
+  --accent: #1b2b4d;
+  --accent-foreground: #e6ebf4;
+  --destructive: #ef5d6e;
+
+  --border: #233152;
+  --input: #2c3c5f;
+  --ring: #6d9cff;
+
+  --success: #4fcb91;
+  --success-soft: #10301f;
+  --warning: #f1b54a;
+  --warning-soft: #33260c;
+
+  --chart-1: #6d9cff;
+  --chart-2: #3b6fd8;
+  --chart-3: #a9c3f5;
+  --chart-4: #64748b;
+  --chart-5: #4fcb91;
+
+  --sidebar: #0b1426;
+  --sidebar-foreground: #a9b5cb;
+  --sidebar-primary: #4a7be0;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #182a4f;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1a2745;
+  --sidebar-ring: #6d9cff;
+}
+
+@theme inline {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply min-h-screen bg-background text-[15px] leading-relaxed text-foreground;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  h1, h2, h3 {
+    @apply tracking-tight;
+  }
+  /* angka (rupiah, stok, kode) rata lebar supaya kolom tabel rapi */
+  table, .num {
+    font-variant-numeric: tabular-nums;
+  }
+}

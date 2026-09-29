@@ -21,7 +21,7 @@ class PaymentIn(CamelModel):
     amount_paid: Annotated[int, Field(strict=True, ge=0)] | None = None
 
     @model_validator(mode="after")
-    def cash_needs_amount(self) -> "PaymentIn":
+    def cash_needs_amount(self) -> PaymentIn:
         if self.method == PaymentMethod.CASH and self.amount_paid is None:
             raise ValueError("Uang yang diterima wajib diisi untuk pembayaran tunai")
         return self

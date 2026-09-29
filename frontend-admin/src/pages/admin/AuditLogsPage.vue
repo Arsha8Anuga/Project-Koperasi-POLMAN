@@ -1,90 +1,101 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref, watch } from 'vue'
-import { auditApi } from '@/services/auditApi'
-import type { AuditLog } from '@/types/api'
-import { formatDateTime } from '@/utils/format'
+import ErrorAlert from '@/components/common/ErrorAlert.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import DataTable from '@/components/table/DataTable.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
+import type { Column } from '@/components/table/types'
+import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { usePagination } from '@/composables/usePagination'
+import { auditApi } from '@/services/api'
+import type { AuditAction, AuditLog, AuditModule } from '@/types/api'
+import { formatDateTime, todayWib } from '@/utils/format'
 
-const logs = ref<AuditLog[]>([])
-const loading = ref(false)
-
-const filters = reactive({ userName: '', entity: '' })
-const entities = ['Product', 'Category', 'Supplier', 'User', 'Member', 'Transaction']
-
-let debounceTimer: ReturnType<typeof setTimeout>
-async function load() {
-  loading.value = true
-  try {
-    logs.value = await auditApi.list({ userName: filters.userName || undefined, entity: filters.entity || undefined })
-  } finally {
-    loading.value = false
-  }
+const modules: Record<AuditModule, string> = {
+  AUTH: 'Autentikasi',
+  USER: 'Pengguna',
+  MEMBER: 'Anggota',
+  CATEGORY: 'Kategori',
+  PRODUCT: 'Produk',
+  SUPPLIER: 'Supplier',
+  RESTOCK: 'Restock',
+  SALE: 'Penjualan',
 }
+const actions: Record<AuditAction, string> = {
+  LOGIN: 'Masuk',
+  LOGOUT: 'Keluar',
+  CREATE: 'Buat',
+  UPDATE: 'Ubah',
+  DEACTIVATE: 'Nonaktifkan',
+  ACTIVATE: 'Aktifkan',
+  RESET_PASSWORD: 'Reset password',
+  SALE: 'Penjualan',
+  RESTOCK: 'Restock',
+}
+const actionTone = (a: AuditAction) =>
+  a === 'DEACTIVATE' || a === 'RESET_PASSWORD'
+    ? 'danger'
+    : a === 'CREATE' || a === 'ACTIVATE'
+      ? 'success'
+      : a === 'LOGIN' || a === 'LOGOUT'
+        ? 'outline'
+        : 'soft'
 
-onMounted(load)
-watch(
-  () => filters.userName,
-  () => {
-    clearTimeout(debounceTimer)
-    debounceTimer = setTimeout(load, 300)
-  },
+const list = usePagination<AuditLog, { module: AuditModule | ''; action: AuditAction | ''; from: string; to: string }>(
+  (q) => auditApi.list(q),
+  { module: '', action: '', from: todayWib(-6), to: todayWib() },
+  25,
 )
-watch(() => filters.entity, load)
+list.load()
 
-function actionColor(action: string) {
-  if (action.includes('DELETE') || action.includes('DEACTIVATE')) return 'text-red-600'
-  if (action.includes('CREATE')) return 'text-green-600'
-  return 'text-blue-600'
-}
+const columns: Column[] = [
+  { key: 'createdAt', label: 'Waktu', class: 'whitespace-nowrap' },
+  { key: 'user', label: 'Pengguna' },
+  { key: 'action', label: 'Aksi' },
+  { key: 'description', label: 'Keterangan' },
+  { key: 'ip', label: 'IP' },
+]
 </script>
 
 <template>
-  <div class="space-y-4">
-    <h1 class="text-lg font-semibold">Audit Trail</h1>
+  <PageHeader title="Audit Trail" subtitle="Catatan semua aksi penting: login, perubahan data, penjualan, dan restock." />
 
-    <div class="flex gap-3">
-      <input
-        v-model="filters.userName"
-        type="text"
-        placeholder="Cari nama user..."
-        class="w-64 rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-      />
-      <select v-model="filters.entity" class="rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-        <option value="">Semua entitas</option>
-        <option v-for="e in entities" :key="e" :value="e">{{ e }}</option>
-      </select>
+  <Card class="gap-0 overflow-hidden py-0">
+    <div class="flex flex-wrap items-center gap-2 border-b p-4">
+      <NativeSelect v-model="list.filters.module" aria-label="Modul">
+        <NativeSelectOption value="">Semua modul</NativeSelectOption>
+        <NativeSelectOption v-for="(label, key) in modules" :key="key" :value="key">{{ label }}</NativeSelectOption>
+      </NativeSelect>
+      <NativeSelect v-model="list.filters.action" aria-label="Aksi">
+        <NativeSelectOption value="">Semua aksi</NativeSelectOption>
+        <NativeSelectOption v-for="(label, key) in actions" :key="key" :value="key">{{ label }}</NativeSelectOption>
+      </NativeSelect>
+      <Input v-model="list.filters.from" type="date" class="w-auto" aria-label="Dari" :max="list.filters.to" />
+      <span class="text-muted-foreground">–</span>
+      <Input v-model="list.filters.to" type="date" class="w-auto" aria-label="Sampai" :min="list.filters.from" />
     </div>
-
-    <div class="overflow-hidden rounded-xl border bg-white">
-      <table class="w-full text-sm">
-        <thead class="border-b bg-gray-50 text-left text-gray-500">
-          <tr>
-            <th class="px-4 py-3 font-medium">Waktu</th>
-            <th class="px-4 py-3 font-medium">User</th>
-            <th class="px-4 py-3 font-medium">Role</th>
-            <th class="px-4 py-3 font-medium">Aksi</th>
-            <th class="px-4 py-3 font-medium">Entitas</th>
-            <th class="px-4 py-3 font-medium">Detail</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="loading">
-            <td colspan="6" class="px-4 py-8 text-center text-gray-400">Memuat data...</td>
-          </tr>
-          <tr v-else-if="logs.length === 0">
-            <td colspan="6" class="px-4 py-8 text-center text-gray-400">Tidak ada log yang cocok</td>
-          </tr>
-          <tr v-for="l in logs" v-else :key="l.id" class="border-b last:border-0 hover:bg-gray-50">
-            <td class="px-4 py-3">{{ formatDateTime(l.createdAt) }}</td>
-            <td class="px-4 py-3">{{ l.userName }}</td>
-            <td class="px-4 py-3">
-              <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">{{ l.userRole }}</span>
-            </td>
-            <td class="px-4 py-3 font-medium" :class="actionColor(l.action)">{{ l.action }}</td>
-            <td class="px-4 py-3">{{ l.entity }}</td>
-            <td class="px-4 py-3 text-gray-600">{{ l.detail || '-' }}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  </div>
+    <ErrorAlert v-if="list.error.value" :message="list.error.value" class="m-4 w-auto" />
+    <DataTable
+      :columns="columns"
+      :rows="list.rows.value"
+      :loading="list.loading.value"
+      row-key="id"
+      empty="Tidak ada aktivitas pada filter ini"
+    >
+      <template #cell-createdAt="{ row }"><span class="text-muted-foreground">{{ formatDateTime(row.createdAt) }}</span></template>
+      <template #cell-user="{ row }">
+        <p class="font-semibold">{{ row.user.name }}</p>
+        <p class="text-xs text-muted-foreground">{{ row.user.role }}</p>
+      </template>
+      <template #cell-action="{ row }">
+        <Badge :variant="actionTone(row.action)">{{ actions[row.action as AuditAction] ?? row.action }}</Badge>
+        <p class="mt-1 text-xs text-muted-foreground">{{ modules[row.module as AuditModule] ?? row.module }}</p>
+      </template>
+      <template #cell-description="{ row }"><span class="whitespace-normal">{{ row.description }}</span></template>
+      <template #cell-ip="{ row }"><span class="font-mono text-xs text-muted-foreground">{{ row.ip ?? '—' }}</span></template>
+    </DataTable>
+    <TablePagination v-model="list.page.value" :meta="list.meta.value" :loading="list.loading.value" />
+  </Card>
 </template>

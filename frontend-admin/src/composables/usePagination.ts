@@ -1,33 +1,53 @@
-import { ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { reactive, ref, watch, type Ref } from 'vue'
 
-export function usePagination(defaultLimit = 10) {
-  const route = useRoute()
-  const router = useRouter()
+/**
+ * State daftar + pagination + filter dengan debounce untuk pencarian.
+ *
+ *   const list = usePagination(async (q) => userApi.list({ ...q, ...filters }), { search: '' })
+ *   list.reload()  // dipanggil setelah create/update
+ */
+export function usePagination<T, F extends Record<string, unknown>>(
+  fetcher: (q: { page: number; limit: number } & F) => Promise<{ data: T[]; meta: { page: number; limit: number; total: number; totalPages: number } }>,
+  initialFilters: F,
+  limit = 20,
+) {
+  const rows = ref([]) as Ref<T[]>
+  const meta = ref({ page: 1, limit, total: 0, totalPages: 0 })
+  const page = ref(1)
+  const filters = reactive({ ...initialFilters }) as F
+  const loading = ref(false)
+  const error = ref('')
 
-  const page = ref(Number(route.query.page) || 1)
-  const limit = ref(Number(route.query.limit) || defaultLimit)
-  const search = ref((route.query.search as string) || '')
-
-  let debounceTimer: ReturnType<typeof setTimeout>
-  function setSearch(value: string) {
-    clearTimeout(debounceTimer)
-    debounceTimer = setTimeout(() => {
-      search.value = value
-      page.value = 1
-    }, 300)
+  let requestId = 0
+  async function load() {
+    const id = ++requestId
+    loading.value = true
+    error.value = ''
+    try {
+      const res = await fetcher({ page: page.value, limit, ...filters })
+      if (id !== requestId) return
+      rows.value = res.data
+      meta.value = res.meta
+    } catch (e) {
+      if (id === requestId) error.value = e instanceof Error ? e.message : 'Gagal memuat data'
+    } finally {
+      if (id === requestId) loading.value = false
+    }
   }
 
-  function setPage(p: number) {
-    page.value = p
-  }
+  let timer: ReturnType<typeof setTimeout> | undefined
+  watch(
+    () => ({ ...filters }),
+    () => {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        if (page.value !== 1) page.value = 1
+        else load()
+      }, 300)
+    },
+    { deep: true },
+  )
+  watch(page, load)
 
-  // sinkron ke query URL supaya bisa di-refresh/bagikan linknya
-  watch([page, limit, search], () => {
-    router.replace({
-      query: { ...route.query, page: String(page.value), limit: String(limit.value), search: search.value || undefined },
-    })
-  })
-
-  return { page, limit, search, setPage, setSearch }
+  return { rows, meta, page, filters, loading, error, load, reload: load }
 }

@@ -40,3 +40,7 @@ async def list_page(
 
 async def count_active(db: AsyncDatabase) -> int:
     return await _col(db).count_documents({"isActive": True})
+
+
+async def find_active_by_id(db: AsyncDatabase, member_id: ObjectId) -> dict[str, Any] | None:
+    return await _col(db).find_one({"_id": member_id, "isActive": True})

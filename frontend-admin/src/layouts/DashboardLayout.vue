@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import AppTopbar from '@/components/layout/AppTopbar.vue'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 </script>
 
+<!-- Sidebar shadcn: bisa diciutkan jadi ikon (Ctrl+B), jadi drawer di layar kecil. -->
 <template>
-  <div class="flex min-h-screen bg-gray-50">
+  <SidebarProvider>
     <AppSidebar />
-    <div class="flex min-w-0 flex-1 flex-col">
+    <SidebarInset class="min-w-0">
       <AppTopbar />
-      <main class="flex-1 p-6">
+      <div class="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8">
         <RouterView />
-      </main>
-    </div>
-  </div>
+      </div>
+    </SidebarInset>
+  </SidebarProvider>
 </template>

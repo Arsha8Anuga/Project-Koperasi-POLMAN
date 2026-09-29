@@ -1,79 +1,52 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import type { Granularity, ReportParams } from '../../types/report'
+import { onMounted, reactive } from 'vue'
+import { Input } from '@/components/ui/input'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import type { Granularity, ReportPeriod } from '@/types/api'
+import { todayWib } from '@/utils/format'
 
-const emit = defineEmits<{ (e: 'change', params: ReportParams): void }>()
+const emit = defineEmits<{ change: [ReportPeriod] }>()
 
-const options: { label: string; value: Granularity }[] = [
-  { label: 'Harian', value: 'HARIAN' },
-  { label: 'Mingguan', value: 'MINGGUAN' },
-  { label: 'Bulanan', value: 'BULANAN' },
-  { label: 'Tahunan', value: 'TAHUNAN' },
+const options: { value: Granularity; label: string; days: number }[] = [
+  { value: 'day', label: 'Harian', days: 29 },
+  { value: 'week', label: 'Mingguan', days: 7 * 12 - 1 },
+  { value: 'month', label: 'Bulanan', days: 365 },
+  { value: 'year', label: 'Tahunan', days: 365 * 5 },
 ]
 
-const active = ref<Granularity>('HARIAN')
+const state = reactive<ReportPeriod>({ granularity: 'day', from: todayWib(-29), to: todayWib() })
 
-function toISO(d: Date) {
-  return d.toISOString().slice(0, 10)
+/** ToggleGroup mengirim undefined saat item aktif diklik ulang → abaikan. */
+function pick(v: unknown) {
+  const opt = options.find((o) => o.value === v)
+  if (!opt) return
+  state.granularity = opt.value
+  state.from = todayWib(-opt.days)
+  state.to = todayWib()
+  emit('change', { ...state })
 }
 
-function rangeFor(g: Granularity) {
-  const now = new Date()
-  const start = new Date(now)
-  if (g === 'HARIAN') start.setDate(now.getDate() - 30)
-  else if (g === 'MINGGUAN') start.setDate(now.getDate() - 12 * 7)
-  else if (g === 'BULANAN') start.setMonth(now.getMonth() - 12)
-  else start.setFullYear(now.getFullYear() - 5)
-  return { from: toISO(start), to: toISO(now) }
+function onDate() {
+  if (state.from && state.to && state.from <= state.to) emit('change', { ...state })
 }
 
-function select(g: Granularity) {
-  active.value = g
-  const { from, to } = rangeFor(g)
-  emit('change', { granularity: g, from, to })
-}
-
-select(active.value)
+onMounted(() => emit('change', { ...state }))
 </script>
 
 <template>
-  <div class="tabs">
-    <button
-      v-for="opt in options"
-      :key="opt.value"
-      type="button"
-      class="tab"
-      :class="{ active: active === opt.value }"
-      @click="select(opt.value)"
+  <div class="flex flex-wrap items-center gap-2">
+    <ToggleGroup
+      type="single"
+      variant="outline"
+      size="sm"
+      :model-value="state.granularity"
+      aria-label="Periode"
+      @update:model-value="pick"
     >
-      {{ opt.label }}
-    </button>
+      <ToggleGroupItem v-for="o in options" :key="o.value" :value="o.value">{{ o.label }}</ToggleGroupItem>
+    </ToggleGroup>
+    <Input v-model="state.from" type="date" class="h-8 w-auto" aria-label="Dari tanggal" :max="state.to" @change="onDate" />
+    <span class="text-muted-foreground">–</span>
+    <Input v-model="state.to" type="date" class="h-8 w-auto" aria-label="Sampai tanggal" :min="state.from" @change="onDate" />
   </div>
 </template>
-
-<style scoped>
-.tabs {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px;
-  background: #f1f5f9;
-  border-radius: 999px;
-  margin-bottom: 16px;
-}
-.tab {
-  border: none;
-  background: transparent;
-  padding: 6px 16px;
-  border-radius: 999px;
-  font-size: 14px;
-  color: #64748b;
-  cursor: pointer;
-}
-.tab:hover { color: #334155; }
-.tab.active {
-  background: #ffffff;
-  color: #0f172a;
-  font-weight: 600;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-}
-</style>

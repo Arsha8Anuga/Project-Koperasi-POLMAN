@@ -1,48 +1,55 @@
 <script setup lang="ts">
-import type { Transaction } from '../../types/transaction'
-import { formatRupiah } from '../../utils/formatRupiah'
-import { formatDateTime } from '../../utils/formatDateTime'
+import type { Sale } from '@/types'
+import { formatDateTime, formatRupiah } from '@/utils/format'
 
-defineProps<{ transaction: Transaction }>()
+defineProps<{ sale: Sale }>()
 </script>
 
+<!-- Struk selalu hitam di atas putih (juga di mode gelap) karena ini yang dicetak/di-PDF-kan. -->
 <template>
-  <div class="mx-auto w-[300px] rounded-2xl border border-slate-200 bg-white p-5 font-mono text-slate-800 shadow-sm">
-    <h2 class="text-center text-base font-bold text-slate-900">Toko Koperasi</h2>
-    <p class="text-center text-xs text-slate-400">{{ transaction.code }}</p>
-    <p class="text-center text-xs text-slate-400">{{ formatDateTime(transaction.createdAt) }}</p>
-
-    <p class="mt-3 text-xs text-slate-600">Kasir: {{ transaction.cashier.name }}</p>
-    <p v-if="transaction.member" class="text-xs text-slate-600">
-      Anggota: {{ transaction.member.name }} ({{ transaction.member.memberNumber }})
-    </p>
-    <p v-else-if="transaction.customerName" class="text-xs text-slate-600">
-      Pelanggan: {{ transaction.customerName }}
-    </p>
-
-    <hr class="my-3 border-slate-200" />
-
-    <div v-for="item in transaction.items" :key="item.productId" class="flex justify-between py-1 text-xs">
-      <span class="text-slate-700">
-        {{ item.name }}<br />
-        <span class="text-slate-400">{{ item.quantity }} × {{ formatRupiah(item.price) }}</span>
-      </span>
-      <span class="font-medium text-slate-800">{{ formatRupiah(item.subtotal) }}</span>
+  <div class="receipt mx-auto w-[300px] rounded-xl bg-white px-5 py-6 font-mono text-[12px] leading-relaxed text-[#111827] shadow-sm">
+    <div class="text-center">
+      <p class="font-sans text-base font-extrabold tracking-tight">TOKO KOPERASI</p>
+      <p class="text-[11px] text-[#4b5563]">Struk Penjualan</p>
     </div>
 
-    <hr class="my-3 border-slate-200" />
+    <div class="my-3 border-t border-dashed border-[#9ca3af]" />
 
-    <div class="flex justify-between text-sm font-bold text-slate-900">
-      <span>Total</span><span>{{ formatRupiah(transaction.total) }}</span>
+    <dl class="space-y-0.5">
+      <div class="flex justify-between"><dt>No.</dt><dd class="font-semibold">{{ sale.code }}</dd></div>
+      <div class="flex justify-between"><dt>Waktu</dt><dd>{{ formatDateTime(sale.createdAt) }}</dd></div>
+      <div class="flex justify-between"><dt>Kasir</dt><dd>{{ sale.cashier.name }}</dd></div>
+      <div v-if="sale.member" class="flex justify-between">
+        <dt>Anggota</dt><dd class="text-right">{{ sale.member.name }}<br />{{ sale.member.memberNumber }}</dd>
+      </div>
+      <div v-else-if="sale.customerName" class="flex justify-between">
+        <dt>Pelanggan</dt><dd>{{ sale.customerName }}</dd>
+      </div>
+    </dl>
+
+    <div class="my-3 border-t border-dashed border-[#9ca3af]" />
+
+    <div v-for="item in sale.items" :key="item.productId" class="mb-1.5">
+      <p class="font-semibold">{{ item.name }}</p>
+      <div class="flex justify-between text-[#374151]">
+        <span>{{ item.quantity }} {{ item.unit }} × {{ formatRupiah(item.price) }}</span>
+        <span>{{ formatRupiah(item.subtotal) }}</span>
+      </div>
     </div>
-    <div class="mt-1 flex justify-between text-xs text-slate-600">
-      <span>Metode</span><span>{{ transaction.payment.method }}</span>
+
+    <div class="my-3 border-t border-dashed border-[#9ca3af]" />
+
+    <div class="flex justify-between text-[14px] font-bold">
+      <span>TOTAL</span><span>{{ formatRupiah(sale.total) }}</span>
     </div>
-    <div class="flex justify-between text-xs text-slate-600">
-      <span>Diterima</span><span>{{ formatRupiah(transaction.payment.amountPaid) }}</span>
+    <div class="mt-1 flex justify-between">
+      <span>{{ sale.payment.method === 'CASH' ? 'Tunai' : 'QRIS' }}</span><span>{{ formatRupiah(sale.payment.amountPaid) }}</span>
     </div>
-    <div v-if="transaction.payment.method === 'CASH'" class="flex justify-between text-xs text-slate-600">
-      <span>Kembalian</span><span>{{ formatRupiah(transaction.payment.change) }}</span>
+    <div v-if="sale.payment.method === 'CASH'" class="flex justify-between">
+      <span>Kembalian</span><span>{{ formatRupiah(sale.payment.change) }}</span>
     </div>
+
+    <div class="my-3 border-t border-dashed border-[#9ca3af]" />
+    <p class="text-center text-[11px] text-[#4b5563]">Terima kasih atas kunjungan Anda</p>
   </div>
 </template>

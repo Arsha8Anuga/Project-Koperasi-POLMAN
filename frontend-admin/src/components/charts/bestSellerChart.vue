@@ -1,80 +1,52 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import type { ChartData, ChartOptions } from 'chart.js'
+import { computed } from 'vue'
 import { Bar } from 'vue-chartjs'
-import {
-  Chart as ChartJS, Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale,
-} from 'chart.js'
-import { reportsApi } from '../../services/reportsApi'
-import { formatRupiah } from '../../utils/formatRupiah'
-import type { BestSellerItem, ReportParams } from '../../types/report'
+import './setup'
+import { useChartTheme } from '@/composables/useChartTheme'
+import type { BestSellerReport } from '@/types/api'
+import { formatNumber, formatRupiah } from '@/utils/format'
 
-ChartJS.register(Title, Tooltip, Legend, BarElement, CategoryScale, LinearScale)
+const props = defineProps<{ report: BestSellerReport }>()
+const t = useChartTheme()
 
-const items = ref<BestSellerItem[]>([])
-const loading = ref(false)
-const errorMsg = ref('')
-
-async function load(params: ReportParams) {
-  loading.value = true
-  errorMsg.value = ''
-  try {
-    items.value = await reportsApi.bestSellers(params)
-  } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : 'Terjadi kesalahan'
-  } finally {
-    loading.value = false
-  }
-}
-defineExpose({ load })
-
-const chartData = computed(() => ({
-  labels: items.value.map((i) => i.name),
+const data = computed<ChartData<'bar'>>(() => ({
+  labels: props.report.items.map((i) => (i.name.length > 24 ? `${i.name.slice(0, 23)}…` : i.name)),
   datasets: [
     {
-      label: 'Qty terjual',
-      data: items.value.map((i) => i.qty),
-      backgroundColor: '#3b82f6',
+      label: 'Terjual',
+      data: props.report.items.map((i) => i.quantitySold),
+      backgroundColor: props.report.items.map((_, idx) => (idx < 3 ? t.value.navy : t.value.steel)),
+      borderRadius: 4,
+      maxBarThickness: 22,
     },
   ],
 }))
 
-const chartOptions = computed(() => ({
-  indexAxis: 'y' as const,
+const options = computed<ChartOptions<'bar'>>(() => ({
+  indexAxis: 'y',
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
     legend: { display: false },
     tooltip: {
       callbacks: {
-        afterLabel: (ctx: any) => `Pendapatan: ${formatRupiah(items.value[ctx.dataIndex].revenue)}`,
+        title: (items) => props.report.items[items[0]?.dataIndex ?? 0]?.name ?? '',
+        label: (ctx) => {
+          const item = props.report.items[ctx.dataIndex]
+          if (!item) return ''
+          return `${formatNumber(item.quantitySold)} terjual · ${formatRupiah(item.revenue)}`
+        },
       },
     },
   },
   scales: {
-    x: { beginAtZero: true },
-    y: { ticks: { autoSkip: false } },
+    x: { beginAtZero: true, grid: { color: t.value.grid }, border: { display: false }, ticks: { color: t.value.text, precision: 0 } },
+    y: { grid: { display: false }, ticks: { color: t.value.fg, font: { weight: 600 } } },
   },
 }))
-
-const chartHeight = computed(() => Math.max(items.value.length * 36, 200))
 </script>
 
 <template>
-  <div class="card">
-    <h3>Best Seller (Top 10)</h3>
-
-    <p v-if="loading">Memuat...</p>
-    <p v-else-if="errorMsg" class="warn">{{ errorMsg }}</p>
-    <p v-else-if="items.length === 0">Belum ada data.</p>
-
-    <div v-else :style="{ height: chartHeight + 'px' }">
-        <Bar :data="chartData" :options="chartOptions" />
-    </div>
-  </div>
+  <Bar :data="data" :options="options" />
 </template>
-
-<style scoped>
-.card { max-width: 600px; margin: 0 auto; padding: 16px; border: 1px solid #ccc; }
-h3 { margin-top: 0; text-align: center; }
-.warn { color: #c00; text-align: center; }
-</style>

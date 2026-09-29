@@ -11,10 +11,11 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import CurrentUser, get_db, require_roles
 from app.core.enums import Granularity, Role
-from app.schemas.common import ok_response
+from app.schemas.common import ERROR_RESPONSES
 from app.services import report_service
+from app.utils.response import ok
 
-router = APIRouter(prefix="/reports", tags=["Reports"])
+router = APIRouter(prefix="/reports", tags=["reports"], responses=ERROR_RESPONSES)
 
 
 @router.get("/cashflow", summary="Arus kas: pemasukan penjualan dan pengeluaran restock")
@@ -25,7 +26,7 @@ async def cashflow(
     user: CurrentUser = Depends(require_roles(Role.OWNER)),
     db=Depends(get_db),
 ):
-    return ok_response(await report_service.cashflow(db, granularity, date_from, date_to))
+    return ok(await report_service.cashflow(db, granularity, date_from, date_to))
 
 
 @router.get("/gross-profit", summary="Laba kotor: pendapatan dikurangi HPP")
@@ -36,7 +37,7 @@ async def gross_profit(
     user: CurrentUser = Depends(require_roles(Role.OWNER)),
     db=Depends(get_db),
 ):
-    return ok_response(await report_service.gross_profit(db, granularity, date_from, date_to))
+    return ok(await report_service.gross_profit(db, granularity, date_from, date_to))
 
 
 @router.get("/best-sellers", summary="Produk terlaris berdasarkan jumlah terjual")
@@ -48,6 +49,4 @@ async def best_sellers(
     user: CurrentUser = Depends(require_roles(Role.OWNER)),
     db=Depends(get_db),
 ):
-    return ok_response(
-        await report_service.best_sellers(db, date_from, date_to, limit, category_id)
-    )
+    return ok(await report_service.best_sellers(db, date_from, date_to, limit, category_id))

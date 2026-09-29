@@ -8,8 +8,6 @@ from typing import Any
 
 from bson import ObjectId
 
-from app.utils.mongo_ids import id_variants
-
 # Pilihan urutan yang diizinkan untuk GET /transactions. _id dipakai sebagai pemisah
 # agar urutan tetap stabil ketika ada nilai yang sama.
 SORT_OPTIONS: dict[str, list[tuple[str, int]]] = {
@@ -50,11 +48,11 @@ def build_filter(
             created["$lt"] = end_utc
         flt["createdAt"] = created
     if cashier_id:
-        flt["cashier.id"] = {"$in": id_variants(cashier_id)}
+        flt["cashier.id"] = cashier_id
     if supplier_id:
-        flt["supplier.id"] = {"$in": id_variants(supplier_id)}
+        flt["supplier.id"] = supplier_id
     if member_id:
-        flt["member.id"] = {"$in": id_variants(member_id)}
+        flt["member.id"] = member_id
     if search and search.strip():
         pattern = re.escape(search.strip())
         flt["$or"] = [
@@ -64,15 +62,8 @@ def build_filter(
     return flt
 
 
-async def find_page(
-    db, flt: dict, sort_key: str, skip: int, limit: int
-) -> list[dict]:
-    cursor = (
-        db.transactions.find(flt)
-        .sort(SORT_OPTIONS[sort_key])
-        .skip(skip)
-        .limit(limit)
-    )
+async def find_page(db, flt: dict, sort_key: str, skip: int, limit: int) -> list[dict]:
+    cursor = db.transactions.find(flt).sort(SORT_OPTIONS[sort_key]).skip(skip).limit(limit)
     return await cursor.to_list(length=limit)
 
 

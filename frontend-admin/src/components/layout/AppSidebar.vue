@@ -1,61 +1,75 @@
 <script setup lang="ts">
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { computed, type Component } from 'vue'
+import { useRoute } from 'vue-router'
+import BrandMark from '@/components/common/BrandMark.vue'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+} from '@/components/ui/sidebar'
 import { appRoutes } from '@/router/routes'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
-const collapsed = ref(false)
+const route = useRoute()
 
+/** Menu dibangun dari konfigurasi route yang sama dengan guard → menu & hak akses tidak mungkin beda. */
 const groups = computed(() => {
-  const map = new Map<string, { label: string; path: string }[]>()
+  const map = new Map<string, { label: string; name: string; path: string; icon: Component }[]>()
   for (const r of appRoutes) {
     const menu = r.meta?.menu
-    if (!menu) continue
+    if (!menu || typeof r.name !== 'string') continue
     if (r.meta?.roles && !auth.hasRole(...r.meta.roles)) continue
     if (!map.has(menu.group)) map.set(menu.group, [])
-    const path = r.path === '' ? '/' : r.path
-    map.get(menu.group)!.push({ label: menu.label, path })
+    map.get(menu.group)!.push({ label: menu.label, name: r.name, path: `/${r.path}`, icon: menu.icon })
   }
   return [...map.entries()].map(([group, items]) => ({ group, items }))
 })
+
+/** Aktif juga untuk sub-halaman (mis. /logistik/products/123 → menu Produk). */
+function isActive(path: string) {
+  return route.path === path || (path !== '/' && route.path.startsWith(`${path}/`))
+}
 </script>
 
 <template>
-  <aside
-    class="relative flex shrink-0 flex-col border-r bg-white transition-all duration-200"
-    :class="collapsed ? 'w-16' : 'w-60'"
-  >
-    <div class="flex h-14 items-center border-b px-5">
-      <span v-if="!collapsed" class="truncate text-lg font-bold text-blue-700">Koperasi Admin</span>
-      <span v-else class="text-lg font-bold text-blue-700">K</span>
-    </div>
+  <Sidebar collapsible="icon">
+    <SidebarHeader class="h-16 justify-center border-b border-sidebar-border">
+      <RouterLink :to="{ name: 'dashboard' }" class="flex items-center gap-3 px-1 group-data-[collapsible=icon]:px-0">
+        <BrandMark size="sm" />
+        <div class="min-w-0 leading-tight group-data-[collapsible=icon]:hidden">
+          <p class="truncate text-[15px] font-bold text-sidebar-accent-foreground">Toko Koperasi</p>
+          <p class="text-xs text-sidebar-foreground/70">Panel Admin</p>
+        </div>
+      </RouterLink>
+    </SidebarHeader>
 
-    <nav class="flex-1 space-y-5 overflow-y-auto p-3">
-      <div v-for="g in groups" :key="g.group">
-        <p v-if="!collapsed" class="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">
+    <SidebarContent class="py-2">
+      <SidebarGroup v-for="g in groups" :key="g.group">
+        <SidebarGroupLabel class="text-[11px] font-bold tracking-wider text-sidebar-foreground/60 uppercase">
           {{ g.group }}
-        </p>
-        <RouterLink
-          v-for="item in g.items"
-          :key="item.path"
-          :to="item.path"
-          class="block truncate rounded-lg px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-          :class="collapsed ? 'text-center' : ''"
-          active-class="!bg-blue-50 !font-semibold !text-blue-700"
-          :title="item.label"
-        >
-          {{ collapsed ? item.label.charAt(0) : item.label }}
-        </RouterLink>
-      </div>
-    </nav>
-
-    <button
-      class="absolute -right-3 top-16 flex h-6 w-6 items-center justify-center rounded-full border bg-white text-gray-500 shadow-sm hover:bg-gray-50"
-      @click="collapsed = !collapsed"
-    >
-      <ChevronLeft v-if="!collapsed" :size="14" />
-      <ChevronRight v-else :size="14" />
-    </button>
-  </aside>
+        </SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            <SidebarMenuItem v-for="item in g.items" :key="item.name">
+              <SidebarMenuButton as-child :is-active="isActive(item.path)" :tooltip="item.label" class="h-9 font-medium">
+                <RouterLink :to="{ name: item.name }">
+                  <component :is="item.icon" />
+                  <span>{{ item.label }}</span>
+                </RouterLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+    </SidebarContent>
+    <SidebarRail />
+  </Sidebar>
 </template>

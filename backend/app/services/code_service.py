@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from app.repositories import counter_repository
-from app.utils.datetime_utils import to_wib, utcnow
+from app.utils.time import to_wib, utcnow
 
 
 async def next_code(db, prefix: str, session=None, at: datetime | None = None) -> str:

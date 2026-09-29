@@ -1,18 +1,27 @@
-from pydantic import BaseModel, ConfigDict, Field
-from pydantic.alias_generators import to_camel
+from pydantic import Field, field_validator
 
-class CamelModel(BaseModel):          # kalau BE-1 sudah punya base serupa, PAKAI PUNYA DIA
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+from app.schemas.common import CamelModel, DocModel
+
+
+def _clean(v):
+    if isinstance(v, str):
+        v = v.strip()
+        return v or None
+    return v
+
+
+class CategoryOut(DocModel):
+    name: str
+    description: str | None = None
+    is_active: bool
+
 
 class CategoryCreate(CamelModel):
     name: str = Field(min_length=1, max_length=60)
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=200)
+
+    _c = field_validator("name", "description", mode="before")(_clean)
+
 
 class CategoryUpdate(CategoryCreate):
-    is_active: bool = True
-
-class CategoryOut(CamelModel):
-    id: str
-    name: str
-    description: str | None = None
     is_active: bool

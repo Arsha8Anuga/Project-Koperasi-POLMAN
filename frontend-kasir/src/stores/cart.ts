@@ -1,56 +1,74 @@
-import { defineStore } from 'pinia';
-import type { CartItem, Product } from '../types';
+import { defineStore } from 'pinia'
+import type { CartItem, Product } from '@/types'
+
+const STORAGE_KEY = 'kasir_cart'
+
+function load(): CartItem[] {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') as CartItem[]
+  } catch {
+    return []
+  }
+}
 
 export const useCartStore = defineStore('cart', {
-  state: () => ({
-    items: JSON.parse(localStorage.getItem('cart_items') || '[]') as CartItem[],
-  }),
+  state: () => ({ items: load() }),
   getters: {
-    totalQty: (state) => state.items.reduce((acc, item) => acc + item.quantity, 0),
-    totalAmount: (state) => state.items.reduce((acc, item) => acc + item.price * item.quantity, 0),
+    totalQty: (s) => s.items.reduce((n, i) => n + i.quantity, 0),
+    /** Perkiraan untuk tampilan. Total yang SAH dihitung backend dari harga di database. */
+    totalAmount: (s) => s.items.reduce((n, i) => n + i.price * i.quantity, 0),
+    isEmpty: (s) => s.items.length === 0,
   },
   actions: {
-    saveToLocalStorage() {
-      localStorage.setItem('cart_items', JSON.stringify(this.items));
+    persist() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.items))
     },
-    addItem(product: Product) {
-      if (product.stock <= 0) return;
-
-      const existing = this.items.find((i) => i.productId === product.id);
+    add(product: Product) {
+      if (product.stock <= 0) return
+      const existing = this.items.find((i) => i.productId === product.id)
       if (existing) {
-        if (existing.quantity < product.stock) {
-          existing.quantity++;
-        }
+        existing.stock = product.stock
+        if (existing.quantity < product.stock) existing.quantity++
       } else {
         this.items.push({
           productId: product.id,
           sku: product.sku,
           name: product.name,
+          unit: product.unit,
           price: product.sellingPrice,
           quantity: 1,
           stock: product.stock,
-        });
+        })
       }
-      this.saveToLocalStorage();
+      this.persist()
     },
-    updateQty(productId: string, qty: number) {
-      const item = this.items.find((i) => i.productId === productId);
-      if (item) {
-        if (qty <= 0) {
-          this.removeItem(productId);
-        } else if (qty <= item.stock) {
-          item.quantity = qty;
-          this.saveToLocalStorage();
-        }
+    setQty(productId: string, qty: number) {
+      const item = this.items.find((i) => i.productId === productId)
+      if (!item) return
+      if (qty <= 0) return this.remove(productId)
+      item.quantity = Math.min(qty, item.stock, 999)
+      this.persist()
+    },
+    remove(productId: string) {
+      this.items = this.items.filter((i) => i.productId !== productId)
+      this.persist()
+    },
+    /** Samakan harga & batas stok keranjang dengan data katalog terbaru. */
+    sync(products: Product[]) {
+      const byId = new Map(products.map((p) => [p.id, p]))
+      for (const item of this.items) {
+        const p = byId.get(item.productId)
+        if (!p) continue
+        item.price = p.sellingPrice
+        item.stock = p.stock
+        if (item.quantity > p.stock) item.quantity = Math.max(p.stock, 0)
       }
+      this.items = this.items.filter((i) => i.quantity > 0)
+      this.persist()
     },
-    removeItem(productId: string) {
-      this.items = this.items.filter((i) => i.productId !== productId);
-      this.saveToLocalStorage();
-    },
-    clearCart() {
-      this.items = [];
-      localStorage.removeItem('cart_items');
+    clear() {
+      this.items = []
+      localStorage.removeItem(STORAGE_KEY)
     },
   },
-});
+})

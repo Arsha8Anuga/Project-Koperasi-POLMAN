@@ -39,6 +39,7 @@ Thumbs.db
 
 # ===== Lain-lain =====
 *.log
+.vscode
 # dump / backup database lokal
 dump/
 *.archive

@@ -15,40 +15,33 @@ Yang dibuat:
 Semua transaksi dibuat lewat fungsi service yang sama dengan API (checkout dan restock),
 bukan insert langsung. Dengan begitu stok, HPP, stock movement, dan audit log tetap konsisten.
 
-Kebutuhan: file .env berisi MONGODB_URI dan MONGODB_DB, serta modul BE-1 dan BE-2 sudah ada
-(app.services.audit dan app.services.restock_service).
+Memakai .env yang sama dengan server (MONGODB_URI, MONGODB_DB). Untuk demo:
+    MONGODB_DB=koperasi_demo python -m scripts.seed --reset
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import os
 import random
 import sys
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 # Agar "python scripts/seed.py" juga bisa menemukan paket app.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import bcrypt  # noqa: E402
-from pymongo import AsyncMongoClient  # noqa: E402
-
-from app.schemas.restock import RestockCreate  # noqa: E402  (milik BE-2)
+from app.core.config import get_settings  # noqa: E402
+from app.core.security import hash_password  # noqa: E402
+from app.db import mongo  # noqa: E402
+from app.db.indexes import ensure_indexes  # noqa: E402
+from app.schemas.restock import RestockCreate  # noqa: E402
 from app.schemas.sale import SaleCreate  # noqa: E402
 from app.services import restock_service, sale_service  # noqa: E402
-from app.utils.datetime_utils import WIB, utcnow  # noqa: E402
+from app.utils.time import WIB, utcnow  # noqa: E402
 
-try:
-    from dotenv import load_dotenv
-
-    load_dotenv()
-except ImportError:  # python-dotenv tidak wajib
-    pass
-
-DEMO_PASSWORD = "Demo12345"
+DEMO_PASSWORD = "koperasi123"  # sama dengan scripts/create_initial_users.py
 SIMULATION_DAYS = 42  # 6 minggu
 RANDOM_SEED = 2026  # hasil selalu sama setiap dijalankan
 
@@ -94,9 +87,30 @@ PRODUCTS = [
 ]
 
 SUPPLIERS = [
-    ("SUP-001", "CV Sumber Makmur", "Andi", "081200000001", "andi@sumbermakmur.example", "Jl. Soekarno Hatta 10, Bandung"),
-    ("SUP-002", "UD Berkah Jaya", "Ratna", "081200000002", "ratna@berkahjaya.example", "Jl. Cihampelas 25, Bandung"),
-    ("SUP-003", "PT Mitra Pangan", "Dedi", "081200000003", "dedi@mitrapangan.example", "Jl. Asia Afrika 8, Bandung"),
+    (
+        "SUP-001",
+        "CV Sumber Makmur",
+        "Andi",
+        "081200000001",
+        "andi@sumbermakmur.example",
+        "Jl. Soekarno Hatta 10, Bandung",
+    ),
+    (
+        "SUP-002",
+        "UD Berkah Jaya",
+        "Ratna",
+        "081200000002",
+        "ratna@berkahjaya.example",
+        "Jl. Cihampelas 25, Bandung",
+    ),
+    (
+        "SUP-003",
+        "PT Mitra Pangan",
+        "Dedi",
+        "081200000003",
+        "dedi@mitrapangan.example",
+        "Jl. Asia Afrika 8, Bandung",
+    ),
 ]
 
 # Kategori dipasok oleh supplier tertentu.
@@ -125,11 +139,11 @@ CUSTOMER_NAMES = ["Budi", "Sari", "Wawan", "Rina", "Joko", "Mira", "Fajar", "Ani
 
 # (role, nama, username), jumlah yang dibutuhkan per role
 DEMO_USERS = [
-    ("OWNER", "Owner Koperasi", "owner"),
+    ("OWNER", "Oscar Owner", "owner"),
     ("LOGISTIK", "Rudi Logistik", "logistik"),
-    ("ADMIN", "Admin Koperasi", "admin"),
-    ("KASIR", "Siti Kasir", "siti"),
-    ("KASIR", "Andi Kasir", "andi"),
+    ("ADMIN", "Ani Admin", "admin"),
+    ("KASIR", "Siti Kasir", "kasir1"),
+    ("KASIR", "Andi Kasir", "kasir2"),
 ]
 REQUIRED_PER_ROLE = {"OWNER": 1, "LOGISTIK": 1, "ADMIN": 1, "KASIR": 2}
 
@@ -148,16 +162,19 @@ class Actor:
 # ---------------------------------------------------------------------------
 
 
-async def confirm_reset(db, assume_yes: bool) -> None:
-    if not assume_yes:
-        answer = input(
-            f"Semua data toko di database '{db.name}' akan dihapus "
-            "(produk, kategori, supplier, anggota, transaksi, stock movement, audit log). "
-            "User tidak dihapus. Ketik 'ya' untuk lanjut: "
-        )
-        if answer.strip().lower() != "ya":
-            print("Dibatalkan.")
-            raise SystemExit(1)
+def confirm_reset(db_name: str) -> None:
+    """Dijalankan SEBELUM event loop (input() memblokir)."""
+    answer = input(
+        f"Semua data toko di database '{db_name}' akan dihapus "
+        "(produk, kategori, supplier, anggota, transaksi, stock movement, audit log). "
+        "User tidak dihapus. Ketik 'ya' untuk lanjut: "
+    )
+    if answer.strip().lower() != "ya":
+        print("Dibatalkan.")
+        raise SystemExit(1)
+
+
+async def reset_data(db) -> None:
     for name in (
         "transactions",
         "stock_movements",
@@ -175,7 +192,7 @@ async def confirm_reset(db, assume_yes: bool) -> None:
 async def ensure_users(db) -> dict[str, list[Actor]]:
     """Pastikan tiap role punya cukup user. User yang sudah ada dipakai ulang."""
     now = utcnow()
-    password_hash = bcrypt.hashpw(DEMO_PASSWORD.encode(), bcrypt.gensalt(rounds=12)).decode()
+    password_hash = hash_password(DEMO_PASSWORD)
     result: dict[str, list[Actor]] = {}
 
     for role, needed in REQUIRED_PER_ROLE.items():
@@ -279,9 +296,7 @@ async def ensure_master_data(db) -> tuple[dict, list[dict], list[dict]]:
 
     skus = [row[0] for row in PRODUCTS]
     products = await db.products.find({"sku": {"$in": skus}}).sort("sku", 1).to_list(length=None)
-    members = await db.members.find(
-        {"memberNumber": {"$in": [m[0] for m in MEMBERS]}}
-    ).to_list(length=None)
+    members = await db.members.find({"memberNumber": {"$in": [m[0] for m in MEMBERS]}}).to_list(length=None)
     return suppliers, products, members
 
 
@@ -304,7 +319,7 @@ def random_purchase_price(rng: random.Random, sku: str) -> int:
 
 
 def wib_datetime(day, hour: int, minute: int) -> datetime:
-    return datetime(day.year, day.month, day.day, hour, minute, tzinfo=WIB).astimezone(timezone.utc)
+    return datetime(day.year, day.month, day.day, hour, minute, tzinfo=WIB).astimezone(UTC)
 
 
 def build_timeline(rng: random.Random, sales_count: int) -> list[tuple[datetime, str]]:
@@ -350,9 +365,7 @@ async def current_stock(db, skus: list[str]) -> dict[str, dict]:
     return {d["sku"]: d for d in docs}
 
 
-async def run_restock(
-    db, rng, logistik: Actor, suppliers: dict, when: datetime, initial: bool
-) -> int:
+async def run_restock(db, rng, logistik: Actor, suppliers: dict, when: datetime, initial: bool) -> int:
     """Buat restock per supplier. Awal: semua produk. Susulan: hanya produk yang menipis."""
     stock_by_sku = await current_stock(db, [row[0] for row in PRODUCTS])
     created = 0
@@ -390,9 +403,7 @@ async def run_restock(
     return created
 
 
-async def run_sale(
-    db, rng, cashiers: list[Actor], members: list[dict], when: datetime
-) -> bool:
+async def run_sale(db, rng, cashiers: list[Actor], members: list[dict], when: datetime) -> bool:
     """Buat satu penjualan acak. Mengembalikan False bila tidak ada produk berstok."""
     stock_by_sku = await current_stock(db, [row[0] for row in PRODUCTS])
     available = [p for p in stock_by_sku.values() if p.get("isActive") and int(p["stock"]) > 0]
@@ -431,16 +442,13 @@ async def run_sale(
 
 
 async def main(args: argparse.Namespace) -> None:
-    uri = os.environ.get("MONGODB_URI")
-    if not uri:
-        raise SystemExit("MONGODB_URI belum diatur. Isi di file .env atau environment.")
-    db_name = os.environ.get("MONGODB_DB", "koperasi_db")
-
-    client = AsyncMongoClient(uri)
-    db = client[db_name]
+    settings = get_settings()  # membaca .env yang sama dengan server
+    await mongo.connect(settings.mongodb_uri, settings.mongodb_db)
+    db = mongo.get_database()
     try:
+        await ensure_indexes(db)
         if args.reset:
-            await confirm_reset(db, args.yes)
+            await reset_data(db)
         elif await db.transactions.count_documents({}) > 0:
             raise SystemExit(
                 "Database sudah berisi transaksi. Jalankan dengan --reset agar data tidak dobel."
@@ -472,7 +480,7 @@ async def main(args: argparse.Namespace) -> None:
         for role, actors in users.items():
             print(f"  {role}: " + ", ".join(a.name for a in actors))
     finally:
-        await client.close()
+        await mongo.close()
 
 
 def parse_args() -> argparse.Namespace:
@@ -484,4 +492,7 @@ def parse_args() -> argparse.Namespace:
 
 
 if __name__ == "__main__":
-    asyncio.run(main(parse_args()))
+    arguments = parse_args()
+    if arguments.reset and not arguments.yes:
+        confirm_reset(get_settings().mongodb_db)
+    asyncio.run(main(arguments))

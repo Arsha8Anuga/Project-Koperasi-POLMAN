@@ -1,64 +1,74 @@
 <script setup lang="ts">
+import { CircleCheckIcon, IdCardIcon, XIcon } from '@lucide/vue'
 import { ref } from 'vue'
-import type { MemberLookupResult } from '../../types/member'
+import { Button } from '@/components/ui/button'
+import { Field, FieldError, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
+import { errorMessage } from '@/services/api'
+import { salesApi } from '@/services/salesApi'
+import type { MemberLookup as Member } from '@/types'
 
-defineProps<{
-  member: MemberLookupResult | null
-  loading?: boolean
-  error?: string
-}>()
+const member = defineModel<Member | null>({ required: true })
 
-const emit = defineEmits<{
-  (e: 'check', memberNumber: string): void
-  (e: 'clear'): void
-}>()
+const number = ref('')
+const loading = ref(false)
+const error = ref('')
 
-const memberNumber = ref('')
-
-function check() {
-  if (!memberNumber.value.trim()) return
-  emit('check', memberNumber.value.trim())
+async function check() {
+  const value = number.value.trim()
+  if (!value || loading.value) return
+  loading.value = true
+  error.value = ''
+  try {
+    member.value = await salesApi.lookupMember(value)
+  } catch (e) {
+    member.value = null
+    error.value = errorMessage(e, 'Nomor anggota tidak ditemukan')
+  } finally {
+    loading.value = false
+  }
 }
 
 function clear() {
-  memberNumber.value = ''
-  emit('clear')
+  member.value = null
+  number.value = ''
+  error.value = ''
 }
 </script>
 
 <template>
-  <div class="max-w-sm mx-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <label class="block text-xs font-semibold uppercase tracking-wide text-slate-400">
-      Nomor anggota (opsional)
-      <input
-        v-model="memberNumber"
-        placeholder="contoh: KOP-001"
-        :disabled="!!member"
-        class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100 disabled:bg-slate-100 disabled:text-slate-400"
-      />
-    </label>
+  <Field :data-invalid="!!error || undefined">
+    <FieldLabel for="member-number">
+      Anggota koperasi <span class="font-normal text-muted-foreground">(opsional)</span>
+    </FieldLabel>
 
-    <button
-      v-if="!member"
-      type="button"
-      :disabled="loading || !memberNumber.trim()"
-      @click="check"
-      class="mt-3 w-full rounded-xl bg-indigo-50 py-2 text-sm font-semibold text-indigo-600 transition hover:bg-indigo-100 disabled:bg-slate-100 disabled:text-slate-400"
-    >
-      {{ loading ? 'Mengecek...' : 'Cek' }}
-    </button>
-    <button
-      v-else
-      type="button"
-      @click="clear"
-      class="mt-3 w-full rounded-xl bg-slate-100 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-200"
-    >
-      Hapus
-    </button>
+    <div v-if="member" class="flex items-center gap-3 rounded-md border border-success/30 bg-success-soft px-3 py-1.5">
+      <CircleCheckIcon class="size-[18px] shrink-0 text-success" />
+      <div class="min-w-0 flex-1 leading-tight">
+        <p class="truncate text-sm font-semibold text-foreground">{{ member.name }}</p>
+        <p class="font-mono text-xs text-muted-foreground">{{ member.memberNumber }}</p>
+      </div>
+      <Button variant="ghost" size="icon-sm" aria-label="Hapus anggota" @click="clear"><XIcon /></Button>
+    </div>
 
-    <p v-if="member" class="mt-2 text-xs font-medium text-emerald-600">
-      Anggota: {{ member.name }} ({{ member.memberNumber }})
-    </p>
-    <p v-else-if="error" class="mt-2 text-xs font-medium text-rose-500">{{ error }}</p>
-  </div>
+    <form v-else class="flex gap-2" @submit.prevent="check">
+      <div class="relative flex-1">
+        <IdCardIcon class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          id="member-number"
+          v-model="number"
+          class="bg-background pl-9 uppercase placeholder:normal-case"
+          :aria-invalid="!!error || undefined"
+          placeholder="contoh: KOP-001"
+          autocomplete="off"
+        />
+      </div>
+      <Button type="submit" variant="outline" :disabled="loading || !number.trim()">
+        <Spinner v-if="loading" />
+        Cek
+      </Button>
+    </form>
+    <FieldError v-if="error">{{ error }}</FieldError>
+  </Field>
 </template>

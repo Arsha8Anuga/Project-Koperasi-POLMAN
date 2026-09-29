@@ -1,31 +1,41 @@
-# app/api/v1/stock.py
-from fastapi import APIRouter, Depends, Query  # type: ignore[reportMissingImports]
-from app.api.deps import get_db, require_roles
-from app.core.enums import Role
-from app.services import stock_service
-from app.utils.response import ok
+"""`/stock/movements` dan `/reports/stock` (milik BE-2). Laporan lain di `reports.py` (BE-3)."""
+
 from datetime import date
-from typing import Literal
-from app.utils.response import paginated
 
-router = APIRouter(tags=["Stock"])      # tanpa prefix, path ditulis lengkap di bawah
+from fastapi import APIRouter, Depends, Query
+from pymongo.asynchronous.database import AsyncDatabase
 
-@router.get("/stock/movements")
-async def list_movements(product_id: str | None = Query(None, alias="productId"),
-                         type: Literal["SALE", "RESTOCK"] | None = None,
-                         date_from: date | None = Query(None, alias="from"),
-                         date_to: date | None = Query(None, alias="to"),
-                         page: int = Query(1, ge=1),
-                         limit: int = Query(20, ge=1, le=100),
-                         user=Depends(require_roles(Role.LOGISTIK, Role.OWNER)),
-                         db=Depends(get_db)):
-    items, total, limit = await stock_service.list_movements(
-        db, product_id, type, date_from, date_to, page, limit)
-    return paginated(items, page, limit, total)
+from app.api.deps import CurrentUser, get_db, require_roles
+from app.core.enums import Role, StockMovementType, StockStatus
+from app.schemas.common import ERROR_RESPONSES, ApiResponse, PaginatedResponse
+from app.schemas.stock import StockMovementOut, StockReport
+from app.services import stock_service
+from app.utils.pagination import PageParams
+from app.utils.response import ok, paginated
 
-@router.get("/reports/stock")
-async def stock_report(category_id: str | None = Query(None, alias="categoryId"),
-                       stock_status: str | None = Query(None, alias="stockStatus"),
-                       user=Depends(require_roles(Role.LOGISTIK, Role.OWNER)),
-                       db=Depends(get_db)):
+router = APIRouter(tags=["stock"], responses=ERROR_RESPONSES)
+viewers = require_roles(Role.LOGISTIK, Role.OWNER)
+
+
+@router.get("/stock/movements", response_model=PaginatedResponse[StockMovementOut])
+async def list_movements(
+    page: PageParams = Depends(),
+    product_id: str | None = Query(None, alias="productId"),
+    type: StockMovementType | None = None,
+    date_from: date | None = Query(None, alias="from"),
+    date_to: date | None = Query(None, alias="to"),
+    _: CurrentUser = Depends(viewers),
+    db: AsyncDatabase = Depends(get_db),
+):
+    items, total = await stock_service.list_movements(db, page, product_id, type, date_from, date_to)
+    return paginated(items, page, total)
+
+
+@router.get("/reports/stock", response_model=ApiResponse[StockReport])
+async def stock_report(
+    category_id: str | None = Query(None, alias="categoryId"),
+    stock_status: StockStatus | None = Query(None, alias="stockStatus"),
+    _: CurrentUser = Depends(viewers),
+    db: AsyncDatabase = Depends(get_db),
+):
     return ok(await stock_service.stock_report(db, category_id, stock_status))

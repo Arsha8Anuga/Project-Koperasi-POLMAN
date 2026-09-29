@@ -1,65 +1,43 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { api } from '@/services/apiClient'
-import type { ApiResponse, Role, User } from '@/types/api'
-
-const TOKEN_KEY = 'admin_token'
-const MOCK_USER_KEY = 'admin_mock_user'
-const MOCK = import.meta.env.VITE_MOCK_AUTH === 'true'
-
-function read(key: string): string | null {
-  try { return localStorage.getItem(key) } catch { return null }
-}
-function write(key: string, value: string | null) {
-  try { value ? localStorage.setItem(key, value) : localStorage.removeItem(key) } catch { /* abaikan */ }
-}
+import { api, TOKEN_KEY } from '@/services/apiClient'
+import type { ApiResponse, LoginData, Role, User } from '@/types/api'
 
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref<string | null>(read(TOKEN_KEY))
-  const user = ref<User | null>(null)
+  const token = ref<string | null>(localStorage.getItem(TOKEN_KEY))
+  const user = ref<Pick<User, 'id' | 'name' | 'username' | 'role'> | null>(null)
   const isAuthenticated = computed(() => !!token.value)
 
+  /** Melempar ApiException kalau gagal — pesannya dari backend dan siap ditampilkan. */
   async function login(username: string, password: string) {
-    if (MOCK) {
-      // SEMENTARA: username owner / logistik / admin, password bebas
-      const role = username.toUpperCase() as Role
-      if (!['OWNER', 'LOGISTIK', 'ADMIN'].includes(role)) {
-        throw new Error('Mode mock: pakai username owner, logistik, atau admin')
-      }
-      token.value = 'mock-token'
-      user.value = { id: role.toLowerCase(), name: `Demo ${role}`, username, role }
-      write(TOKEN_KEY, token.value)
-      write(MOCK_USER_KEY, JSON.stringify(user.value))
-      return
-    }
-    // TODO: cek nama field & bentuk response di dokumen 04
-    const res = await api.post<ApiResponse<{ token: string; user: User }>>('/auth/login', {
-      username, password, app: 'ADMIN',
-    })
+    const res = await api.post<ApiResponse<LoginData>>('/auth/login', { username, password, app: 'ADMIN' })
     token.value = res.data.data.token
     user.value = res.data.data.user
-    write(TOKEN_KEY, token.value)
+    localStorage.setItem(TOKEN_KEY, token.value)
   }
 
+  /** Dipanggil guard setelah refresh halaman: token masih ada, data user belum. */
   async function fetchMe() {
-    if (MOCK) {
-      const saved = read(MOCK_USER_KEY)
-      if (!saved) throw new Error('Tidak ada sesi')
-      user.value = JSON.parse(saved) as User
-      return
-    }
     const res = await api.get<ApiResponse<User>>('/auth/me')
     user.value = res.data.data
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      if (token.value) await api.post('/auth/logout')
+    } catch {
+      /* token sudah tidak berlaku: tetap keluar */
+    }
+    clear()
+  }
+
+  function clear() {
     token.value = null
     user.value = null
-    write(TOKEN_KEY, null)
-    write(MOCK_USER_KEY, null)
+    localStorage.removeItem(TOKEN_KEY)
   }
 
   const hasRole = (...roles: Role[]) => !!user.value && roles.includes(user.value.role)
 
-  return { token, user, isAuthenticated, login, fetchMe, logout, hasRole }
+  return { token, user, isAuthenticated, login, fetchMe, logout, clear, hasRole }
 })

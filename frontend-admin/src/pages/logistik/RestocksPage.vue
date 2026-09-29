@@ -1,57 +1,83 @@
 <script setup lang="ts">
+import { PlusIcon } from '@lucide/vue'
 import { onMounted, ref } from 'vue'
-import { restockApi } from '@/services/restockApi'
-import type { Restock } from '@/types/api'
-import { formatDateTime, formatRupiah } from '@/utils/format'
+import { useRouter } from 'vue-router'
+import ErrorAlert from '@/components/common/ErrorAlert.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import DataTable from '@/components/table/DataTable.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
+import type { Column } from '@/components/table/types'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { usePagination } from '@/composables/usePagination'
+import { restockApi, supplierApi } from '@/services/api'
+import type { Supplier, Transaction } from '@/types/api'
+import { formatDateTime, formatRupiah, todayWib } from '@/utils/format'
 
-const restocks = ref<Restock[]>([])
-const loading = ref(false)
+const router = useRouter()
+const suppliers = ref<Supplier[]>([])
+const list = usePagination<Transaction, { supplierId: string; from: string; to: string }>((q) => restockApi.list(q), {
+  supplierId: '',
+  from: todayWib(-29),
+  to: todayWib(),
+})
 
-async function load() {
-  loading.value = true
-  try {
-    restocks.value = await restockApi.list()
-  } finally {
-    loading.value = false
-  }
+onMounted(async () => {
+  list.load()
+  suppliers.value = await supplierApi
+    .list({ limit: 100 })
+    .then((r) => r.data)
+    .catch(() => [])
+})
+
+function open(r: Transaction) {
+  router.push({ name: 'restock-detail', params: { id: r.id } })
 }
-onMounted(load)
+
+const columns: Column[] = [
+  { key: 'code', label: 'Kode' },
+  { key: 'createdAt', label: 'Waktu' },
+  { key: 'supplier', label: 'Supplier' },
+  { key: 'items', label: 'Item', align: 'right' },
+  { key: 'total', label: 'Total', align: 'right' },
+]
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <h1 class="text-lg font-semibold">Restock</h1>
-      <RouterLink to="/logistik/restocks/new" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-        + Restock Baru
-      </RouterLink>
-    </div>
+  <PageHeader title="Restock" subtitle="Setiap restock menambah stok dan menghitung ulang HPP (rata-rata bergerak).">
+    <Button as-child>
+      <RouterLink :to="{ name: 'restock-new' }"><PlusIcon /> Restock baru</RouterLink>
+    </Button>
+  </PageHeader>
 
-    <div class="overflow-hidden rounded-xl border bg-white">
-      <table class="w-full text-sm">
-        <thead class="border-b bg-gray-50 text-left text-gray-500">
-          <tr>
-            <th class="px-4 py-3 font-medium">Kode</th>
-            <th class="px-4 py-3 font-medium">Supplier</th>
-            <th class="px-4 py-3 font-medium">Tanggal</th>
-            <th class="px-4 py-3 font-medium">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="loading">
-            <td colspan="4" class="px-4 py-8 text-center text-gray-400">Memuat data...</td>
-          </tr>
-          <tr v-else-if="restocks.length === 0">
-            <td colspan="4" class="px-4 py-8 text-center text-gray-400">Belum ada riwayat restock</td>
-          </tr>
-          <tr v-for="r in restocks" v-else :key="r.id" class="border-b last:border-0 hover:bg-gray-50">
-            <td class="px-4 py-3 font-medium">{{ r.code }}</td>
-            <td class="px-4 py-3">{{ r.supplierName }}</td>
-            <td class="px-4 py-3">{{ formatDateTime(r.createdAt) }}</td>
-            <td class="px-4 py-3">{{ formatRupiah(r.total) }}</td>
-          </tr>
-        </tbody>
-      </table>
+  <Card class="gap-0 overflow-hidden py-0">
+    <div class="flex flex-wrap items-center gap-2 border-b p-4">
+      <NativeSelect v-model="list.filters.supplierId" class="min-w-48" aria-label="Supplier">
+        <NativeSelectOption value="">Semua supplier</NativeSelectOption>
+        <NativeSelectOption v-for="s in suppliers" :key="s.id" :value="s.id">{{ s.name }}</NativeSelectOption>
+      </NativeSelect>
+      <Input v-model="list.filters.from" type="date" class="w-auto" aria-label="Dari" :max="list.filters.to" />
+      <span class="text-muted-foreground">–</span>
+      <Input v-model="list.filters.to" type="date" class="w-auto" aria-label="Sampai" :min="list.filters.from" />
     </div>
-  </div>
+    <ErrorAlert v-if="list.error.value" :message="list.error.value" class="m-4 w-auto" />
+    <DataTable
+      :columns="columns"
+      :rows="list.rows.value"
+      :loading="list.loading.value"
+      row-key="id"
+      clickable
+      empty="Belum ada restock pada rentang ini"
+      @row-click="open"
+    >
+      <template #cell-code="{ row }"><span class="font-mono text-[13px] font-semibold">{{ row.code }}</span></template>
+      <template #cell-createdAt="{ row }"><span class="text-muted-foreground">{{ formatDateTime(row.createdAt) }}</span></template>
+      <template #cell-supplier="{ row }">{{ row.supplier?.name }}</template>
+      <template #cell-items="{ row }">{{ row.items.length }} produk</template>
+      <template #cell-total="{ row }"><span class="font-semibold">{{ formatRupiah(row.total) }}</span></template>
+    </DataTable>
+    <TablePagination v-model="list.page.value" :meta="list.meta.value" :loading="list.loading.value" />
+  </Card>
 </template>

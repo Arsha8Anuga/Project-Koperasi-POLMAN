@@ -1,35 +1,33 @@
-import re
+from typing import Any
+
+from bson import ObjectId
 from pymongo import ReturnDocument
-from app.utils.serialize import to_oid
+from pymongo.asynchronous.database import AsyncDatabase
+
+from app.repositories.base import find_page
+from app.utils.pagination import PageParams
 
 
-def _build_query(search: str | None, is_active: bool | None) -> dict:
-    q = {}
-    if is_active is not None:
-        q["isActive"] = is_active
-    if search:
-        rx = {"$regex": re.escape(search), "$options": "i"}
-        q["$or"] = [{"name": rx}, {"supplierCode": rx}]
-    return q
+def _col(db: AsyncDatabase):
+    return db["suppliers"]
 
 
-async def insert(db, doc: dict):
-    res = await db.suppliers.insert_one(doc)
-    doc["_id"] = res.inserted_id
+async def find_by_id(db: AsyncDatabase, supplier_id: ObjectId) -> dict[str, Any] | None:
+    return await _col(db).find_one({"_id": supplier_id})
+
+
+async def list_page(
+    db: AsyncDatabase, filter: dict[str, Any], page: PageParams
+) -> tuple[list[dict[str, Any]], int]:
+    return await find_page(_col(db), filter, page, sort=[("supplierCode", 1), ("_id", 1)])
+
+
+async def insert(db: AsyncDatabase, doc: dict[str, Any]) -> dict[str, Any]:
+    doc["_id"] = (await _col(db).insert_one(doc)).inserted_id
     return doc
 
 
-async def find_by_id(db, id: str):
-    return await db.suppliers.find_one({"_id": to_oid(id)})
-
-
-async def find_page(db, search, is_active, skip: int, limit: int):
-    q = _build_query(search, is_active)
-    total = await db.suppliers.count_documents(q)
-    docs = await db.suppliers.find(q).sort("name", 1).skip(skip).limit(limit).to_list()
-    return docs, total
-
-
-async def update(db, id: str, fields: dict):
-    return await db.suppliers.find_one_and_update(
-        {"_id": to_oid(id)}, {"$set": fields}, return_document=ReturnDocument.AFTER)
+async def update(db: AsyncDatabase, supplier_id: ObjectId, fields: dict[str, Any]) -> dict[str, Any] | None:
+    return await _col(db).find_one_and_update(
+        {"_id": supplier_id}, {"$set": fields}, return_document=ReturnDocument.AFTER
+    )

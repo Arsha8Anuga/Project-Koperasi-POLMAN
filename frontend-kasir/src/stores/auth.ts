@@ -1,61 +1,45 @@
-import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
-import apiClient from '../services/api';
-import type { User, LoginPayload, LoginResponse } from '../types/auth';
+import { defineStore } from 'pinia'
+import { computed, ref } from 'vue'
+import { api, TOKEN_KEY, USER_KEY } from '@/services/api'
+import type { ApiResponse, LoginData, UserBrief } from '@/types'
+
+function readUser(): UserBrief | null {
+  try {
+    return JSON.parse(localStorage.getItem(USER_KEY) || 'null') as UserBrief | null
+  } catch {
+    return null
+  }
+}
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref<User | null>(JSON.parse(localStorage.getItem('user') || 'null'));
-  const token = ref<string | null>(localStorage.getItem('token'));
+  const token = ref<string | null>(localStorage.getItem(TOKEN_KEY))
+  const user = ref<UserBrief | null>(readUser())
+  const isAuthenticated = computed(() => !!token.value)
 
-  const isAuthenticated = computed(() => !!token.value);
+  /** Melempar ApiException kalau gagal — pesannya dari backend dan siap ditampilkan. */
+  async function login(username: string, password: string) {
+    const res = await api.post<ApiResponse<LoginData>>('/auth/login', { username, password, app: 'KASIR' })
+    token.value = res.data.data.token
+    user.value = res.data.data.user
+    localStorage.setItem(TOKEN_KEY, token.value)
+    localStorage.setItem(USER_KEY, JSON.stringify(user.value))
+  }
 
-  async function login(credentials: Omit<LoginPayload, 'app'>) {
+  async function logout() {
     try {
-      // Panggil API backend BE-1
-      const response = await apiClient.post<LoginResponse>('/auth/login', {
-        ...credentials,
-        app: 'KASIR', // Wajib diset KASIR sesuai spec BE-1
-      });
-
-      token.value = response.data.token;
-      user.value = response.data.user;
-
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
-
-      return { success: true };
-    } catch (error: any) {
-      // MOCK BACKUP: Jika backend BE-1 belum siap/terhubung saat dicoba
-      if (!import.meta.env.PROD) {
-        const mockToken = 'mock-jwt-token-kasir';
-        const mockUser: User = {
-          id: 'u1',
-          username: credentials.username,
-          name: 'Kasir Utama',
-          role: 'KASIR',
-        };
-
-        token.value = mockToken;
-        user.value = mockUser;
-        localStorage.setItem('token', mockToken);
-        localStorage.setItem('user', JSON.stringify(mockUser));
-
-        return { success: true };
-      }
-
-      return {
-        success: false,
-        message: error.response?.data?.message || 'Login gagal, periksa username/password',
-      };
+      if (token.value) await api.post('/auth/logout')
+    } catch {
+      /* token sudah tidak berlaku: tetap keluar */
     }
+    clear()
   }
 
-  function logout() {
-    token.value = null;
-    user.value = null;
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  function clear() {
+    token.value = null
+    user.value = null
+    localStorage.removeItem(TOKEN_KEY)
+    localStorage.removeItem(USER_KEY)
   }
 
-  return { user, token, isAuthenticated, login, logout };
-});
+  return { token, user, isAuthenticated, login, logout, clear }
+})

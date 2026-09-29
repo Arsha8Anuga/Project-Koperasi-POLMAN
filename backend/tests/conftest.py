@@ -1,5 +1,5 @@
 """Fixture bersama. Test integration memakai MongoDB SUNGGUHAN (replica set), database
-`TEST_MONGODB_DB` dari .env, yang DI-DROP di awal dan akhir setiap test.
+`TEST_MONGODB_DB` dari .env, yang SEMUA collection-nya dihapus di awal dan akhir setiap test.
 
     TEST_MONGODB_DB=koperasi_test_be1 pytest
 """
@@ -32,15 +32,22 @@ async def db() -> AsyncIterator[AsyncDatabase]:
     if name == settings.mongodb_db or "test" not in name:
         pytest.exit(f"TEST_MONGODB_DB='{name}' terlihat seperti DB kerja. Test men-DROP DB ini — batal.")
     await mongo.connect(settings.mongodb_uri, name)
-    client = mongo.get_client()
-    await client.drop_database(name)
     database = mongo.get_database()
+    await _clear(database)
     await ensure_indexes(database)
     try:
         yield database
     finally:
-        await client.drop_database(name)
+        await _clear(database)
         await mongo.close()
+
+
+async def _clear(database: AsyncDatabase) -> None:
+    # Drop per collection, BUKAN dropDatabase: role `readWrite` tidak punya izin dropDatabase,
+    # jadi user aplikasi yang hak aksesnya minimal tetap bisa menjalankan test.
+    for name in await database.list_collection_names():
+        if not name.startswith("system."):
+            await database.drop_collection(name)
 
 
 @pytest.fixture
@@ -101,3 +108,20 @@ def assert_error(res: httpx.Response, status: int, code: str) -> dict:
     assert body["error"]["code"] == code
     assert isinstance(body["message"], str) and body["message"]
     return body
+
+
+@pytest.fixture
+async def staff(db, client) -> dict[str, dict[str, str]]:
+    """Header token untuk tiap role: staff["KASIR"], staff["LOGISTIK"], dst. (+ "KASIR2")."""
+    headers: dict[str, dict[str, str]] = {}
+    for username, role, app_name in [
+        ("admin", "ADMIN", "ADMIN"),
+        ("owner", "OWNER", "ADMIN"),
+        ("logistik", "LOGISTIK", "ADMIN"),
+        ("kasir1", "KASIR", "KASIR"),
+        ("kasir2", "KASIR", "KASIR"),
+    ]:
+        await make_user(db, username, role, name=username.title())
+        key = "KASIR2" if username == "kasir2" else role
+        headers[key] = await auth_header(client, username, app_name)
+    return headers

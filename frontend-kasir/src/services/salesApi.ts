@@ -1,43 +1,24 @@
-import type { SaleRequest } from '../types/sale'
-import type { Transaction } from '../types/transaction'
-import type { Paginated } from '../types/api'
-import { mockCreateSale, createdSales } from '../mocks/checkout'
-import { mockListMySales } from '../mocks/history'
-// import api from './api'
+import { api } from './api'
+import type { ApiResponse, MemberLookup, Paginated, Sale, SaleRequest } from '@/types'
 
 export const salesApi = {
-  create: (req: SaleRequest): Promise<Transaction> => {
-    return mockCreateSale(req)
-    // nanti: return api.post<{ data: Transaction }>('/sales', req).then((r) => r.data.data)
+  async create(body: SaleRequest): Promise<Sale> {
+    const res = await api.post<ApiResponse<Sale>>('/sales', body)
+    return res.data.data
   },
 
-  mine: (page: number, limit: number): Promise<Paginated<Transaction>> => {
-    return mockListMySales(page, limit).then((res) => {
-      // taruh transaksi baru (createdSales) di paling atas, hanya di halaman 1
-      if (page === 1 && createdSales.length > 0) {
-        const merged = [...createdSales].reverse().concat(res.data).slice(0, limit)
-        return {
-          ...res,
-          data: merged,
-          meta: { ...res.meta, total: res.meta.total + createdSales.length },
-        }
-      }
-      return res
-    })
-    // nanti: return api.get<Paginated<Transaction>>('/sales/mine', { params: { page, limit } }).then((r) => r.data)
+  async mine(params: { page: number; limit: number; from?: string; to?: string }): Promise<Paginated<Sale>> {
+    const res = await api.get<Paginated<Sale>>('/sales/mine', { params })
+    return res.data
   },
 
-  getById: (id: string): Promise<Transaction> => {
-    return new Promise((resolve, reject) => {
-      const fromNew = createdSales.find((tx) => tx.id === id)
-      if (fromNew) return resolve(fromNew)
+  async get(id: string): Promise<Sale> {
+    const res = await api.get<ApiResponse<Sale>>(`/sales/${id}`)
+    return res.data.data
+  },
 
-      mockListMySales(1, 100).then((res) => {
-        const found = res.data.find((tx) => tx.id === id)
-        if (found) resolve(found)
-        else reject(new Error('Transaksi tidak ditemukan'))
-      })
-    })
-    // nanti: return api.get<{ data: Transaction }>(`/sales/${id}`).then((r) => r.data.data)
+  async lookupMember(memberNumber: string): Promise<MemberLookup> {
+    const res = await api.get<ApiResponse<MemberLookup>>(`/members/lookup/${encodeURIComponent(memberNumber)}`)
+    return res.data.data
   },
 }

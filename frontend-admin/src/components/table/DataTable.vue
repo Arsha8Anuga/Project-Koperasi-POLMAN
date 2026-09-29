@@ -1,77 +1,69 @@
-<script setup lang="ts" generic="T extends object">
-export interface Column<T> {
-  key: keyof T & string
-  label: string
-  sortable?: boolean
-  render?: (row: T) => string
-}
+<script setup lang="ts">
+/**
+ * Tabel standar di atas shadcn Table. Isi sel kustom lewat slot `cell-<key>`:
+ *   <DataTable :columns="cols" :rows="rows">
+ *     <template #cell-status="{ row }"><ActiveBadge :active="row.isActive" /></template>
+ *   </DataTable>
+ */
+import { InboxIcon } from '@lucide/vue'
+import { Empty, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Table, TableBody, TableCell, TableEmpty, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import type { Column } from './types'
 
-const props = defineProps<{
-  columns: Column<T>[]
-  rows: T[]
+defineProps<{
+  columns: Column[]
+  rows: any[]
   loading?: boolean
-  meta?: { page: number; limit: number; total: number; totalPages: number }
+  rowKey?: string
+  empty?: string
+  clickable?: boolean
 }>()
-const emit = defineEmits<{ 'update:page': [number]; sort: [string] }>()
+const emit = defineEmits<{ rowClick: [row: any] }>()
 
-function cell(row: T, col: Column<T>) {
-  if (col.render) return col.render(row)
-  const value = (row as Record<string, unknown>)[col.key]
-  return String(value ?? '-')
-}
+const alignClass = (a?: string) => (a === 'right' ? 'text-right' : a === 'center' ? 'text-center' : '')
 </script>
 
 <template>
-  <div class="overflow-hidden rounded-xl border bg-white">
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="border-b bg-gray-50 text-left text-gray-500">
-          <tr>
-            <th
-              v-for="col in columns"
-              :key="col.key"
-              class="px-4 py-3 font-medium"
-              :class="col.sortable && 'cursor-pointer select-none hover:text-gray-700'"
-              @click="col.sortable && emit('sort', col.key)"
-            >
-              {{ col.label }}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="loading">
-            <td :colspan="columns.length" class="px-4 py-8 text-center text-gray-400">Memuat data...</td>
-          </tr>
-          <tr v-else-if="rows.length === 0">
-            <td :colspan="columns.length" class="px-4 py-8 text-center text-gray-400">Tidak ada data</td>
-          </tr>
-          <tr v-for="(row, i) in rows" v-else :key="i" class="border-b last:border-0 hover:bg-gray-50">
-            <td v-for="col in columns" :key="col.key" class="px-4 py-3">
-              <slot :name="`cell-${col.key}`" :row="row">{{ cell(row, col) }}</slot>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div v-if="meta" class="flex items-center justify-between border-t px-4 py-3 text-sm text-gray-500">
-      <span>Halaman {{ meta.page }} dari {{ meta.totalPages || 1 }} · {{ meta.total }} data</span>
-      <div class="flex gap-2">
-        <button
-          class="rounded-lg border px-3 py-1 disabled:opacity-40"
-          :disabled="meta.page <= 1"
-          @click="emit('update:page', meta.page - 1)"
+  <Table>
+    <TableHeader class="bg-muted/60">
+      <TableRow class="hover:bg-transparent">
+        <TableHead
+          v-for="c in columns"
+          :key="c.key"
+          :class="['h-11 px-4 text-xs font-semibold tracking-wide text-muted-foreground uppercase', alignClass(c.align), c.class]"
         >
-          Sebelumnya
-        </button>
-        <button
-          class="rounded-lg border px-3 py-1 disabled:opacity-40"
-          :disabled="meta.page >= meta.totalPages"
-          @click="emit('update:page', meta.page + 1)"
-        >
-          Berikutnya
-        </button>
-      </div>
-    </div>
-  </div>
+          {{ c.label }}
+        </TableHead>
+      </TableRow>
+    </TableHeader>
+    <TableBody>
+      <template v-if="loading && rows.length === 0">
+        <TableRow v-for="n in 5" :key="n">
+          <TableCell v-for="c in columns" :key="c.key" class="px-4 py-3.5"><Skeleton class="h-4 w-full max-w-40" /></TableCell>
+        </TableRow>
+      </template>
+      <TableEmpty v-else-if="rows.length === 0" :colspan="columns.length">
+        <Empty class="p-0 md:p-0">
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><InboxIcon /></EmptyMedia>
+            <EmptyTitle class="text-sm font-medium text-muted-foreground">{{ empty ?? 'Tidak ada data' }}</EmptyTitle>
+          </EmptyHeader>
+        </Empty>
+      </TableEmpty>
+      <TableRow
+        v-for="(row, i) in rows"
+        v-else
+        :key="rowKey ? row[rowKey] : i"
+        :class="[clickable && 'cursor-pointer', loading && 'opacity-60']"
+        :tabindex="clickable ? 0 : undefined"
+        @click="clickable && emit('rowClick', row)"
+        @keydown.enter="clickable && emit('rowClick', row)"
+      >
+        <TableCell v-for="c in columns" :key="c.key" :class="['px-4 py-3', alignClass(c.align), c.class]">
+          <slot :name="`cell-${c.key}`" :row="row">{{ row[c.key] ?? '—' }}</slot>
+        </TableCell>
+      </TableRow>
+    </TableBody>
+  </Table>
 </template>

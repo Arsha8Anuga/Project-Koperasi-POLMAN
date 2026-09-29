@@ -1,4 +1,4 @@
-"""Schema response laporan owner dan ringkasan dashboard owner."""
+"""Schema response laporan owner (dokumen 04 §7.12)."""
 
 from __future__ import annotations
 
@@ -67,17 +67,3 @@ class BestSellerReport(CamelModel):
     from_date: date = Field(alias="from")
     to_date: date = Field(alias="to")
     items: list[BestSellerItem]
-
-
-class OwnerDashboardSummary(CamelModel):
-    """Ringkasan dashboard untuk role OWNER.
-
-    Empat field pertama adalah kontrak dokumen 04 bagian 7.2.
-    net_cashflow_today adalah tambahan (penjualan hari ini dikurangi restock hari ini).
-    """
-
-    sales_today: int
-    transactions_today: int
-    gross_profit_today: int
-    restock_today: int
-    net_cashflow_today: int

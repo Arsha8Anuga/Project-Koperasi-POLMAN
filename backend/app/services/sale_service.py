@@ -9,20 +9,14 @@ from bson import ObjectId
 
 from app.core.enums import PaymentMethod, Role
 from app.core.errors import AppError
-from app.repositories import checkout_repository, transaction_repository
+from app.db.transaction import run_in_transaction
+from app.repositories import member_repo, product_repo, stock_movement_repo, transaction_repository
 from app.schemas.sale import PaymentIn, SaleCreate, SaleItemIn
-from app.services import audit
+from app.services import audit_service as audit
 from app.services.code_service import next_code
-from app.services.transaction_runner import run_in_transaction
 from app.services.transaction_service import role_value
-from app.utils.datetime_utils import (
-    date_bounds,
-    ensure_utc,
-    today_wib,
-    utcnow,
-    validate_date_order,
-)
-from app.utils.mongo_ids import parse_object_id
+from app.utils.objectid import try_object_id
+from app.utils.time import ensure_utc, today_wib, utcnow, validate_date_order, wib_range_to_utc
 
 
 def format_rupiah(value: int) -> str:
@@ -143,7 +137,7 @@ def build_payment(payment: PaymentIn, total: int, paid_at: datetime) -> dict:
 
 async def _raise_stock_error(db, index: int, item: SaleItemIn, session) -> None:
     """Dipanggil ketika update stok bersyarat gagal. Cari tahu penyebabnya lalu lempar error."""
-    product = await checkout_repository.find_product(db, ObjectId(item.product_id), session)
+    product = await product_repo.find_by_id(db, ObjectId(item.product_id), session)
     if product is None:
         raise AppError(
             404,
@@ -180,9 +174,7 @@ async def _raise_stock_error(db, index: int, item: SaleItemIn, session) -> None:
     )
 
 
-async def checkout(
-    db, cashier: Any, body: SaleCreate, at: datetime | None = None
-) -> dict:
+async def checkout(db, cashier: Any, body: SaleCreate, at: datetime | None = None) -> dict:
     """Proses penjualan dari keranjang kasir. Mengembalikan dokumen transaksi SALE.
 
     Langkah:
@@ -196,7 +188,7 @@ async def checkout(
     Parameter at hanya dipakai skrip seed dan tidak boleh diekspos lewat API.
     """
     created_at = ensure_utc(at) if at else utcnow()
-    cashier_oid = parse_object_id(str(cashier.id))
+    cashier_oid = try_object_id(str(cashier.id))
     if cashier_oid is None:
         raise AppError(401, "UNAUTHORIZED", "Sesi tidak valid, silakan login ulang")
 
@@ -211,7 +203,7 @@ async def checkout(
         )
 
     product_ids = [ObjectId(item.product_id) for item in body.items]
-    products = await checkout_repository.find_products_by_ids(db, product_ids)
+    products = await product_repo.find_by_ids(db, product_ids)
     products_by_id = {str(product["_id"]): product for product in products}
     check_products(body.items, products_by_id)
 
@@ -223,7 +215,7 @@ async def checkout(
 
     member_snapshot: dict | None = None
     if body.member_id:
-        member = await checkout_repository.find_active_member(db, ObjectId(body.member_id))
+        member = await member_repo.find_active_by_id(db, ObjectId(body.member_id))
         if member is None:
             raise AppError(
                 404,
@@ -245,7 +237,7 @@ async def checkout(
 
         for index, item in enumerate(body.items):
             product_oid = ObjectId(item.product_id)
-            updated = await checkout_repository.decrement_stock_if_available(
+            updated = await product_repo.decrement_stock_if_available(
                 db, product_oid, item.quantity, created_at, session
             )
             if updated is None:
@@ -275,7 +267,7 @@ async def checkout(
         for movement in movements:
             movement["referenceId"] = sale_id
             movement["referenceCode"] = code
-        await checkout_repository.insert_movements(db, movements, session)
+        await stock_movement_repo.insert_many(db, movements, session)
 
         sale = {
             "_id": sale_id,
@@ -304,11 +296,12 @@ async def checkout(
             "SALE",
             sale_id,
             f"Penjualan {code} dengan total {format_rupiah(subtotal)}",
-            session,
+            session=session,
+            at=created_at,
         )
         return sale
 
-    return await run_in_transaction(db, work)
+    return await run_in_transaction(db.client, work)
 
 
 # ---------------------------------------------------------------------------
@@ -329,9 +322,9 @@ async def list_my_sales(
     end_date = to_date or today_wib()
     start_date = from_date or end_date
     validate_date_order(start_date, end_date)
-    start_utc, end_utc = date_bounds(start_date, end_date)
+    start_utc, end_utc = wib_range_to_utc(start_date, end_date)
 
-    cashier_oid = parse_object_id(str(cashier.id))
+    cashier_oid = try_object_id(str(cashier.id))
     flt = transaction_repository.build_filter(
         tx_type="SALE",
         start_utc=start_utc,
@@ -348,7 +341,7 @@ async def get_sale_for_user(db, sale_id: str, user: Any) -> dict:
 
     KASIR hanya boleh membuka transaksinya sendiri. OWNER boleh membuka semuanya.
     """
-    oid = parse_object_id(sale_id)
+    oid = try_object_id(sale_id)
     doc = await transaction_repository.find_by_id(db, oid) if oid else None
     if doc is None or doc.get("type") != "SALE":
         raise AppError(404, "NOT_FOUND", "Transaksi tidak ditemukan")

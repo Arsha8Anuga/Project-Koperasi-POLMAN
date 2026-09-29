@@ -1,159 +1,122 @@
 <script setup lang="ts">
+import { PlusIcon, SquarePenIcon } from '@lucide/vue'
 import { onMounted, reactive, ref } from 'vue'
-import ConfirmModal from '@/components/common/ConfirmModal.vue'
-import FormModal from '@/components/common/FormModal.vue'
-import { categoryApi } from '@/services/categoryApi'
+import ActiveBadge from '@/components/common/ActiveBadge.vue'
+import ErrorAlert from '@/components/common/ErrorAlert.vue'
+import Modal from '@/components/common/Modal.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import FormField from '@/components/form/FormField.vue'
+import DataTable from '@/components/table/DataTable.vue'
+import type { Column } from '@/components/table/types'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { DialogFooter } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Spinner } from '@/components/ui/spinner'
+import { Switch } from '@/components/ui/switch'
+import { categoryApi } from '@/services/api'
+import { ApiException, errorMessage } from '@/services/apiClient'
+import { useToast } from '@/composables/useToast'
 import type { Category } from '@/types/api'
 
-const categories = ref<Category[]>([])
-const loading = ref(false)
-const errorMsg = ref('')
-
-// state modal form (tambah/ubah)
-const showForm = ref(false)
-const editing = ref<Category | null>(null)
-const form = reactive({ name: '' })
-const fieldError = ref('')
-const saving = ref(false)
-
-// state modal hapus
-const showConfirm = ref(false)
-const toDelete = ref<Category | null>(null)
-const deleting = ref(false)
+const toast = useToast()
+const rows = ref<Category[]>([])
+const loading = ref(true)
+const error = ref('')
 
 async function load() {
   loading.value = true
-  errorMsg.value = ''
+  error.value = ''
   try {
-    categories.value = await categoryApi.list()
+    rows.value = await categoryApi.list()
   } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : 'Gagal memuat kategori'
+    error.value = errorMessage(e, 'Gagal memuat kategori')
   } finally {
     loading.value = false
   }
 }
 onMounted(load)
 
-function openCreate() {
-  editing.value = null
-  form.name = ''
-  fieldError.value = ''
-  showForm.value = true
+const columns: Column[] = [
+  { key: 'name', label: 'Nama' },
+  { key: 'description', label: 'Deskripsi' },
+  { key: 'isActive', label: 'Status' },
+  { key: 'actions', label: '', align: 'right' },
+]
+
+const open = ref(false)
+const editing = ref<Category | null>(null)
+const form = reactive({ name: '', description: '', isActive: true })
+const errors = reactive<Record<string, string>>({})
+const saving = ref(false)
+
+function openForm(c: Category | null) {
+  editing.value = c
+  form.name = c?.name ?? ''
+  form.description = c?.description ?? ''
+  form.isActive = c?.isActive ?? true
+  for (const k of Object.keys(errors)) delete errors[k]
+  open.value = true
 }
 
-function openEdit(cat: Category) {
-  editing.value = cat
-  form.name = cat.name
-  fieldError.value = ''
-  showForm.value = true
-}
-
-async function submitForm() {
+async function save() {
+  for (const k of Object.keys(errors)) delete errors[k]
   if (!form.name.trim()) {
-    fieldError.value = 'Nama kategori wajib diisi'
+    errors.name = 'Nama wajib diisi'
     return
   }
   saving.value = true
+  const body = { name: form.name.trim(), description: form.description.trim() || null }
   try {
-    if (editing.value) {
-      await categoryApi.update(editing.value.id, form.name.trim())
-    } else {
-      await categoryApi.create(form.name.trim())
-    }
-    showForm.value = false
-    await load()
+    if (editing.value) await categoryApi.update(editing.value.id, { ...body, isActive: form.isActive })
+    else await categoryApi.create(body)
+    toast.success(editing.value ? 'Kategori diperbarui' : 'Kategori dibuat')
+    open.value = false
+    load()
   } catch (e) {
-    fieldError.value = e instanceof Error ? e.message : 'Gagal menyimpan kategori'
+    if (e instanceof ApiException) Object.assign(errors, e.fieldErrors())
+    if (!Object.keys(errors).length) errors.name = errorMessage(e)
   } finally {
     saving.value = false
-  }
-}
-
-function askDelete(cat: Category) {
-  toDelete.value = cat
-  showConfirm.value = true
-}
-
-async function confirmDelete() {
-  if (!toDelete.value) return
-  deleting.value = true
-  try {
-    await categoryApi.remove(toDelete.value.id)
-    showConfirm.value = false
-    await load()
-  } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : 'Gagal menghapus kategori'
-    showConfirm.value = false
-  } finally {
-    deleting.value = false
   }
 }
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <h1 class="text-lg font-semibold">Kategori</h1>
-      <button class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" @click="openCreate">
-        + Kategori Baru
-      </button>
-    </div>
+  <PageHeader title="Kategori" subtitle="Kategori nonaktif tidak muncul di filter aplikasi kasir.">
+    <Button @click="openForm(null)"><PlusIcon /> Kategori baru</Button>
+  </PageHeader>
 
-    <p v-if="errorMsg" class="text-sm text-red-600">{{ errorMsg }}</p>
+  <ErrorAlert v-if="error" :message="error" class="mb-4" />
 
-    <div class="overflow-hidden rounded-xl border bg-white">
-      <table class="w-full text-sm">
-        <thead class="border-b bg-gray-50 text-left text-gray-500">
-          <tr>
-            <th class="px-4 py-3 font-medium">Nama</th>
-            <th class="px-4 py-3 font-medium">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="loading">
-            <td colspan="2" class="px-4 py-8 text-center text-gray-400">Memuat data...</td>
-          </tr>
-          <tr v-else-if="categories.length === 0">
-            <td colspan="2" class="px-4 py-8 text-center text-gray-400">Belum ada kategori</td>
-          </tr>
-          <tr v-for="c in categories" v-else :key="c.id" class="border-b last:border-0 hover:bg-gray-50">
-            <td class="px-4 py-3">{{ c.name }}</td>
-            <td class="px-4 py-3">
-              <button class="mr-3 text-blue-600 hover:underline" @click="openEdit(c)">Ubah</button>
-              <button class="text-red-600 hover:underline" @click="askDelete(c)">Hapus</button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+  <Card class="gap-0 overflow-hidden py-0">
+    <DataTable :columns="columns" :rows="rows" :loading="loading" row-key="id" empty="Belum ada kategori">
+      <template #cell-name="{ row }"><span class="font-semibold">{{ row.name }}</span></template>
+      <template #cell-description="{ row }"><span class="text-muted-foreground">{{ row.description ?? '—' }}</span></template>
+      <template #cell-isActive="{ row }"><ActiveBadge :active="row.isActive" /></template>
+      <template #cell-actions="{ row }">
+        <Button variant="ghost" size="sm" @click="openForm(row)"><SquarePenIcon /> Ubah</Button>
+      </template>
+    </DataTable>
+  </Card>
 
-    <FormModal :open="showForm" :title="editing ? 'Ubah Kategori' : 'Kategori Baru'" @close="showForm = false">
-      <form class="space-y-4" @submit.prevent="submitForm">
-        <div>
-          <label class="mb-1 block text-sm font-medium">Nama Kategori</label>
-          <input v-model="form.name" type="text" class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-          <p v-if="fieldError" class="mt-1 text-xs text-red-600">{{ fieldError }}</p>
-        </div>
-        <div class="flex justify-end gap-3">
-          <button type="button" class="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50" @click="showForm = false">
-            Batal
-          </button>
-          <button type="submit" :disabled="saving"
-            class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-            {{ saving ? 'Menyimpan...' : 'Simpan' }}
-          </button>
-        </div>
-      </form>
-    </FormModal>
-
-    <ConfirmModal
-      :open="showConfirm"
-      title="Hapus kategori?"
-      :message="`Kategori '${toDelete?.name}' akan dihapus.`"
-      confirm-text="Hapus"
-      danger
-      @confirm="confirmDelete"
-      @cancel="showConfirm = false"
-    />
-  </div>
+  <Modal :open="open" :title="editing ? 'Ubah kategori' : 'Kategori baru'" @close="open = false">
+    <form class="space-y-4" @submit.prevent="save">
+      <FormField label="Nama" for="cat-name" required :error="errors.name">
+        <Input id="cat-name" v-model="form.name" :aria-invalid="!!errors.name || undefined" maxlength="60" autofocus />
+      </FormField>
+      <FormField label="Deskripsi" for="cat-desc" :error="errors.description">
+        <Input id="cat-desc" v-model="form.description" maxlength="200" />
+      </FormField>
+      <div v-if="editing" class="flex items-center gap-3">
+        <Switch id="cat-active" v-model="form.isActive" />
+        <Label for="cat-active">Aktif</Label>
+      </div>
+      <DialogFooter class="pt-2">
+        <Button type="button" variant="outline" @click="open = false">Batal</Button>
+        <Button type="submit" :disabled="saving"><Spinner v-if="saving" /> Simpan</Button>
+      </DialogFooter>
+    </form>
+  </Modal>
 </template>

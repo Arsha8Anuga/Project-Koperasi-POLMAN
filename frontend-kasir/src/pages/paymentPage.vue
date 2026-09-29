@@ -1,65 +1,61 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ArrowLeftIcon, BanknoteIcon, CircleAlertIcon, QrCodeIcon, ShoppingCartIcon } from '@lucide/vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import CashPanel from '../components/payment/CashPanel.vue'
-import QrisPanel from '../components/payment/QrisPanel.vue'
-import MemberLookup from '../components/payment/MemberLookup.vue'
-import { formatRupiah } from '../utils/formatRupiah'
-import { memberApi } from '../services/memberApi'
-import { salesApi } from '../services/salesApi'
-import { useCartStore } from '../stores/cart'
-import type { SaleRequest } from '../types/sale'
-import type { PaymentMethod } from '../types/transaction'
-import type { MemberLookupResult } from '../types/member'
+import CashPanel from '@/components/payment/CashPanel.vue'
+import MemberLookup from '@/components/payment/MemberLookup.vue'
+import QrisPanel from '@/components/payment/QrisPanel.vue'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Empty, EmptyContent, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { ApiException, errorMessage } from '@/services/api'
+import { salesApi } from '@/services/salesApi'
+import { useCartStore } from '@/stores/cart'
+import type { MemberLookup as Member, PaymentMethod, SaleRequest, StockIssue } from '@/types'
+import { formatRupiah } from '@/utils/format'
 
-const router = useRouter()
 const cart = useCartStore()
-
-const cartItems = computed(() => cart.items)
-const total = computed(() => cart.totalAmount)
+const router = useRouter()
 
 const method = ref<PaymentMethod>('CASH')
-
-const member = ref<MemberLookupResult | null>(null)
-const memberLoading = ref(false)
-const memberError = ref('')
-
-async function onCheckMember(memberNumber: string) {
-  memberLoading.value = true
-  memberError.value = ''
-  try {
-    member.value = await memberApi.lookup(memberNumber)
-  } catch (e) {
-    member.value = null
-    memberError.value = e instanceof Error ? e.message : 'Terjadi kesalahan'
-  } finally {
-    memberLoading.value = false
-  }
-}
-function onClearMember() {
-  member.value = null
-  memberError.value = ''
-}
-
+const member = ref<Member | null>(null)
+const customerName = ref('')
 const submitting = ref(false)
-const submitError = ref('')
+const error = ref('')
+const issues = ref<StockIssue[]>([])
+
+const total = computed(() => cart.totalAmount)
+
+/** ToggleGroup mengirim undefined kalau item aktif diklik lagi — abaikan supaya selalu ada metode. */
+function setMethod(v: unknown) {
+  if (v === 'CASH' || v === 'QRIS') method.value = v
+}
 
 async function pay(amountPaid?: number) {
-  if (submitting.value) return
+  if (submitting.value || cart.isEmpty) return
   submitting.value = true
-  submitError.value = ''
+  error.value = ''
+  issues.value = []
+  const body: SaleRequest = {
+    items: cart.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+    customerName: customerName.value.trim() || null,
+    memberId: member.value?.id ?? null,
+    payment: method.value === 'CASH' ? { method: 'CASH', amountPaid: amountPaid ?? 0 } : { method: 'QRIS' },
+  }
   try {
-    const req: SaleRequest = {
-      items: cartItems.value.map((i) => ({ productId: i.productId, quantity: i.quantity })),
-      customerName: member.value ? member.value.name : null,
-      memberId: member.value ? member.value.id : null,
-      payment: method.value === 'CASH' ? { method: 'CASH', amountPaid } : { method: 'QRIS' },
-    }
-    const tx = await salesApi.create(req)
-    cart.clearCart()
-    router.push(`/invoice/${tx.id}`)
+    const sale = await salesApi.create(body)
+    cart.clear()
+    router.replace({ name: 'invoice', params: { id: sale.id }, query: { new: '1' } })
   } catch (e) {
-    submitError.value = e instanceof Error ? e.message : 'Terjadi kesalahan'
+    error.value = errorMessage(e, 'Transaksi gagal')
+    if (e instanceof ApiException && ['INSUFFICIENT_STOCK', 'PRODUCT_INACTIVE', 'NOT_FOUND'].includes(e.code ?? '')) {
+      issues.value = e.details as StockIssue[]
+    }
   } finally {
     submitting.value = false
   }
@@ -67,41 +63,98 @@ async function pay(amountPaid?: number) {
 </script>
 
 <template>
-  <div class="mx-auto max-w-md px-4 py-6">
-    <h2 class="text-lg font-bold text-slate-900">Pembayaran</h2>
-
-    <div class="mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div v-for="item in cartItems" :key="item.productId" class="flex justify-between py-1 text-sm text-slate-600">
-        <span>{{ item.name }} ({{ item.quantity }} × {{ formatRupiah(item.price) }})</span>
-        <span class="font-medium text-slate-800">{{ formatRupiah(item.price * item.quantity) }}</span>
+  <div class="h-full overflow-y-auto">
+    <div class="mx-auto max-w-5xl px-4 py-6 sm:px-6">
+      <div class="mb-6 flex items-center gap-3">
+        <Button as-child variant="ghost" size="icon" aria-label="Kembali ke kasir">
+          <RouterLink :to="{ name: 'pos' }"><ArrowLeftIcon class="size-5" /></RouterLink>
+        </Button>
+        <div>
+          <h1 class="text-2xl font-bold">Pembayaran</h1>
+          <p class="text-sm text-muted-foreground">Periksa pesanan, lalu pilih metode pembayaran.</p>
+        </div>
       </div>
-      <div class="mt-2 flex justify-between border-t border-slate-100 pt-2 text-sm font-bold text-slate-900">
-        <span>Total</span>
-        <span>{{ formatRupiah(total) }}</span>
+
+      <Card v-if="cart.isEmpty">
+        <Empty>
+          <EmptyHeader>
+            <EmptyMedia variant="icon"><ShoppingCartIcon /></EmptyMedia>
+            <EmptyTitle>Keranjang kosong</EmptyTitle>
+          </EmptyHeader>
+          <EmptyContent>
+            <Button as-child size="sm"><RouterLink :to="{ name: 'pos' }">Kembali ke kasir</RouterLink></Button>
+          </EmptyContent>
+        </Empty>
+      </Card>
+
+      <div v-else class="grid items-start gap-6 lg:grid-cols-[1fr_26rem]">
+        <Card class="gap-0 py-0">
+          <CardHeader class="flex items-center justify-between border-b pt-4 pb-4!">
+            <CardTitle>Ringkasan pesanan</CardTitle>
+            <Badge variant="soft">{{ cart.totalQty }} barang</Badge>
+          </CardHeader>
+          <CardContent>
+            <ul class="divide-y">
+              <li v-for="item in cart.items" :key="item.productId" class="flex items-center justify-between gap-4 py-3">
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-semibold">{{ item.name }}</p>
+                  <p class="num text-xs text-muted-foreground">{{ item.quantity }} × {{ formatRupiah(item.price) }}</p>
+                </div>
+                <p class="num text-sm font-semibold">{{ formatRupiah(item.price * item.quantity) }}</p>
+              </li>
+            </ul>
+          </CardContent>
+          <CardFooter class="flex-col items-stretch gap-4 rounded-b-xl border-t bg-muted/50 pt-4! pb-4">
+            <div class="grid gap-4 sm:grid-cols-2">
+              <Field>
+                <FieldLabel for="customer">
+                  Nama pelanggan <span class="font-normal text-muted-foreground">(opsional)</span>
+                </FieldLabel>
+                <Input id="customer" v-model="customerName" maxlength="60" placeholder="contoh: Budi" class="bg-background" />
+              </Field>
+              <MemberLookup v-model="member" />
+            </div>
+            <div class="flex items-baseline justify-between">
+              <span class="font-semibold text-muted-foreground">Total bayar</span>
+              <span class="num text-3xl font-extrabold tracking-tight">{{ formatRupiah(total) }}</span>
+            </div>
+          </CardFooter>
+        </Card>
+
+        <Card>
+          <CardContent class="space-y-5">
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              class="grid w-full grid-cols-2"
+              :model-value="method"
+              aria-label="Metode pembayaran"
+              @update:model-value="setMethod"
+            >
+              <ToggleGroupItem value="CASH" class="h-10 font-semibold"><BanknoteIcon /> Tunai</ToggleGroupItem>
+              <ToggleGroupItem value="QRIS" class="h-10 font-semibold"><QrCodeIcon /> QRIS</ToggleGroupItem>
+            </ToggleGroup>
+
+            <Alert v-if="error" variant="destructive">
+              <CircleAlertIcon />
+              <AlertTitle class="line-clamp-none">{{ error }}</AlertTitle>
+              <AlertDescription v-if="issues.length">
+                <ul class="space-y-0.5">
+                  <li v-for="(it, i) in issues" :key="i">
+                    {{ it.name ?? 'Produk' }}<template v-if="it.available !== undefined">
+                      — diminta {{ it.requested }}, tersedia {{ it.available }}</template
+                    >
+                  </li>
+                </ul>
+                <RouterLink :to="{ name: 'pos' }" class="mt-1 inline-block font-semibold underline">Ubah keranjang</RouterLink>
+              </AlertDescription>
+            </Alert>
+
+            <CashPanel v-if="method === 'CASH'" :total="total" :loading="submitting" @submit="pay" />
+            <QrisPanel v-else :total="total" :loading="submitting" @confirm="pay()" />
+          </CardContent>
+        </Card>
       </div>
     </div>
-
-    <div class="mt-4">
-      <MemberLookup
-        :member="member" :loading="memberLoading" :error="memberError"
-        @check="onCheckMember" @clear="onClearMember"
-      />
-    </div>
-
-    <div class="mt-4 flex justify-center gap-6">
-      <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-        <input v-model="method" type="radio" value="CASH" class="accent-indigo-600" /> Tunai
-      </label>
-      <label class="flex items-center gap-2 text-sm font-medium text-slate-700">
-        <input v-model="method" type="radio" value="QRIS" class="accent-indigo-600" /> QRIS
-      </label>
-    </div>
-
-    <div class="mt-4">
-      <CashPanel v-if="method === 'CASH'" :total="total" :loading="submitting" @submit="pay" />
-      <QrisPanel v-else :total="total" :loading="submitting" @confirm="pay()" />
-    </div>
-
-    <p v-if="submitError" class="mt-3 text-center text-sm font-medium text-rose-500">{{ submitError }}</p>
   </div>
 </template>

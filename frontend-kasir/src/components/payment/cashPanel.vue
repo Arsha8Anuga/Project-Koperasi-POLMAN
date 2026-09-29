@@ -1,84 +1,89 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { formatRupiah } from '../../utils/formatRupiah'
+import { computed, ref } from 'vue'
+import { Button } from '@/components/ui/button'
+import { Field, FieldLabel } from '@/components/ui/field'
+import { Spinner } from '@/components/ui/spinner'
+import { cn } from '@/lib/utils'
+import { formatNumber, formatRupiah } from '@/utils/format'
 
-const props = defineProps<{
-  total: number
-  loading?: boolean
-}>()
+const props = defineProps<{ total: number; loading?: boolean }>()
+const emit = defineEmits<{ submit: [amountPaid: number] }>()
 
-const emit = defineEmits<{
-  (e: 'submit', amountPaid: number): void
-}>()
+const amount = ref<number | null>(null)
+const paid = computed(() => amount.value ?? 0)
+const enough = computed(() => paid.value >= props.total && props.total > 0)
+const change = computed(() => Math.max(paid.value - props.total, 0))
+const short = computed(() => amount.value !== null && !enough.value)
 
-const amountPaid = ref<number>(0)
+/** Uang pas + pembulatan ke atas yang umum dipakai pembeli. */
+const quickAmounts = computed(() => {
+  const set = new Set<number>()
+  for (const step of [5_000, 10_000, 50_000, 100_000]) {
+    const v = Math.ceil(props.total / step) * step
+    if (v > props.total) set.add(v)
+  }
+  return [...set].sort((a, b) => a - b).slice(0, 4)
+})
 
-const change = computed(() => Math.max(amountPaid.value - props.total, 0))
-const isEnough = computed(() => amountPaid.value >= props.total)
-
-const quickAmounts = [20000, 50000, 100000]
-
-function setExact() {
-  amountPaid.value = props.total
+function onInput(e: Event) {
+  const digits = (e.target as HTMLInputElement).value.replace(/\D/g, '')
+  amount.value = digits ? Math.min(Number(digits), 1_000_000_000) : null
 }
 
 function submit() {
-  if (!isEnough.value || props.loading) return
-  emit('submit', amountPaid.value)
+  if (enough.value && !props.loading) emit('submit', paid.value)
 }
 </script>
 
 <template>
-  <div class="max-w-sm mx-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-    <p class="text-sm text-slate-500">
-      Total: <span class="font-bold text-slate-900">{{ formatRupiah(total) }}</span>
-    </p>
+  <form class="space-y-4" @submit.prevent="submit">
+    <Field>
+      <FieldLabel for="amount-paid">Uang diterima</FieldLabel>
+      <div class="relative">
+        <span class="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-lg font-semibold text-muted-foreground">Rp</span>
+        <!-- input polos (bukan komponen Input) karena nilainya diformat ribuan saat diketik -->
+        <input
+          id="amount-paid"
+          :value="amount === null ? '' : formatNumber(amount)"
+          inputmode="numeric"
+          autocomplete="off"
+          placeholder="0"
+          :aria-invalid="short || undefined"
+          :class="
+            cn(
+              'num h-14 w-full rounded-md border border-input bg-transparent pr-4 pl-12 text-2xl font-bold shadow-xs outline-none transition-[color,box-shadow] dark:bg-input/30',
+              'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+              'aria-invalid:border-destructive aria-invalid:ring-destructive/20',
+            )
+          "
+          autofocus
+          @input="onInput"
+        />
+      </div>
+    </Field>
 
-    <label class="mt-4 block text-xs font-semibold uppercase tracking-wide text-slate-400">
-      Uang diterima
-      <input
-        v-model.number="amountPaid"
-        type="number"
-        min="0"
-        class="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100"
-      />
-    </label>
-    <p class="mt-1 text-xs text-slate-400">{{ formatRupiah(amountPaid || 0) }}</p>
-
-    <div class="mt-3 flex flex-wrap gap-2">
-      <button
-        type="button"
-        @click="setExact"
-        class="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-600 transition hover:bg-indigo-100"
-      >
-        Uang Pas
-      </button>
-      <button
-        v-for="n in quickAmounts"
-        :key="n"
-        type="button"
-        @click="amountPaid = n"
-        class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-200"
-      >
-        {{ n.toLocaleString('id-ID') }}
-      </button>
+    <div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <Button type="button" variant="secondary" size="sm" @click="amount = total">Uang pas</Button>
+      <Button v-for="v in quickAmounts" :key="v" type="button" variant="outline" size="sm" class="num" @click="amount = v">
+        {{ formatNumber(v) }}
+      </Button>
     </div>
 
-    <div class="mt-4 flex items-center justify-between text-sm">
-      <span class="text-slate-500">Kembalian</span>
-      <span class="text-base font-bold text-slate-900">{{ formatRupiah(change) }}</span>
-    </div>
-    <p v-if="!isEnough" class="mt-1 text-xs font-medium text-rose-500">
-      Uang kurang {{ formatRupiah(total - (amountPaid || 0)) }}
-    </p>
-
-    <button
-      type="button"
-      :disabled="!isEnough || loading"
-      @click="submit"
-      class="mt-4 w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow-md transition hover:bg-indigo-700 disabled:bg-slate-300 disabled:shadow-none"
+    <div
+      class="flex items-center justify-between rounded-lg border px-4 py-3"
+      :class="short ? 'border-destructive/30 bg-destructive/8' : 'bg-muted/50'"
     >
-      {{ loading ? 'Memproses...' : 'Selesaikan' }}
-    </button>
-  </div>
+      <span class="text-sm font-semibold" :class="short ? 'text-destructive' : 'text-muted-foreground'">
+        {{ short ? 'Uang kurang' : 'Kembalian' }}
+      </span>
+      <span class="num text-xl font-extrabold" :class="short ? 'text-destructive' : 'text-success'">
+        {{ formatRupiah(short ? total - paid : change) }}
+      </span>
+    </div>
+
+    <Button type="submit" size="lg" class="h-12 w-full text-[15px]" :disabled="!enough || loading">
+      <Spinner v-if="loading" />
+      {{ loading ? 'Memproses…' : 'Selesaikan Pembayaran' }}
+    </Button>
+  </form>
 </template>

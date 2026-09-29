@@ -1,61 +1,52 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
 import { toDataURL } from 'qrcode'
-import { formatRupiah } from '../../utils/formatRupiah'
+import { ref, watch } from 'vue'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Spinner } from '@/components/ui/spinner'
+import { formatRupiah } from '@/utils/format'
 
-const props = defineProps<{
-  total: number
-  loading?: boolean
-}>()
+const props = defineProps<{ total: number; loading?: boolean }>()
+const emit = defineEmits<{ confirm: [] }>()
 
-const emit = defineEmits<{
-  (e: 'confirm'): void
-}>()
+const qr = ref('')
+const failed = ref(false)
 
-const qrImage = ref<string>('')
-const errorMsg = ref<string>('')
-
+// SIMULASI: QR berisi total belanja, bukan QRIS sungguhan (tidak ada payment gateway di MVP).
 watch(
   () => props.total,
   async (total) => {
-    errorMsg.value = ''
+    failed.value = false
     try {
-      const payload = `KOPERASI|${total}|${Date.now()}`
-      qrImage.value = await toDataURL(payload, { width: 240, margin: 1 })
+      qr.value = await toDataURL(`KOPERASI-QRIS|${total}|${Date.now()}`, {
+        width: 440,
+        margin: 1,
+        color: { dark: '#0f1b33', light: '#ffffff' },
+      })
     } catch {
-      qrImage.value = ''
-      errorMsg.value = 'Gagal membuat QR. Coba lagi.'
+      qr.value = ''
+      failed.value = true
     }
   },
   { immediate: true },
 )
-
-function confirm() {
-  if (props.loading) return
-  emit('confirm')
-}
 </script>
 
 <template>
-  <div class="max-w-sm mx-auto rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
-    <p class="text-sm text-slate-500">
-      Total: <span class="font-bold text-slate-900">{{ formatRupiah(total) }}</span>
-    </p>
-
-    <img v-if="qrImage" :src="qrImage" alt="QR pembayaran QRIS" width="220" height="220" class="mx-auto mt-4 rounded-xl border border-slate-100 p-2" />
-    <p v-if="errorMsg" class="mt-2 text-xs font-medium text-rose-500">{{ errorMsg }}</p>
-
-    <p class="mt-3 text-xs text-slate-400">
-      Minta pelanggan memindai QR, lalu tekan tombol setelah pembayaran masuk.
-    </p>
-
-    <button
-      type="button"
-      :disabled="!qrImage || loading"
-      @click="confirm"
-      class="mt-4 w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow-md transition hover:bg-indigo-700 disabled:bg-slate-300 disabled:shadow-none"
-    >
-      {{ loading ? 'Memproses...' : 'Pembayaran Diterima' }}
-    </button>
+  <div class="space-y-4 text-center">
+    <!-- QR selalu di atas putih supaya bisa dipindai di mode gelap -->
+    <div class="mx-auto w-fit rounded-xl border bg-white p-3 shadow-sm">
+      <img v-if="qr" :src="qr" alt="Kode QR pembayaran" width="220" height="220" class="block" />
+      <p v-else-if="failed" class="flex size-[220px] items-center justify-center text-sm text-slate-500">Gagal membuat QR</p>
+      <Skeleton v-else class="size-[220px] bg-slate-200" />
+    </div>
+    <div>
+      <p class="num text-2xl font-extrabold">{{ formatRupiah(total) }}</p>
+      <p class="mt-1 text-sm text-muted-foreground">Minta pelanggan memindai QR, lalu konfirmasi setelah pembayaran masuk.</p>
+    </div>
+    <Button size="lg" class="h-12 w-full text-[15px]" :disabled="!qr || loading" @click="emit('confirm')">
+      <Spinner v-if="loading" />
+      {{ loading ? 'Memproses…' : 'Pembayaran Diterima' }}
+    </Button>
   </div>
 </template>

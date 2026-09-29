@@ -8,10 +8,12 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.deps import CurrentUser, get_db, require_roles
 from app.core.enums import Role, TransactionType
-from app.schemas.common import ok_response, paged_response
+from app.schemas.common import ERROR_RESPONSES
 from app.services import transaction_service
+from app.utils.pagination import PageParams
+from app.utils.response import ok, paginated
 
-router = APIRouter(prefix="/transactions", tags=["Transactions"])
+router = APIRouter(prefix="/transactions", tags=["transactions"], responses=ERROR_RESPONSES)
 
 
 @router.get("", summary="Riwayat transaksi SALE dan RESTOCK")
@@ -24,8 +26,7 @@ async def list_transactions(
     member_id: str | None = Query(default=None, alias="memberId"),
     search: str | None = Query(default=None, max_length=60),
     sort: str = Query(default="-createdAt"),
-    page: int = Query(default=1, ge=1),
-    limit: int = Query(default=20, ge=1, le=100),
+    page: PageParams = Depends(),
     user: CurrentUser = Depends(require_roles(Role.OWNER)),
     db=Depends(get_db),
 ):
@@ -39,11 +40,11 @@ async def list_transactions(
         member_id=member_id,
         search=search,
         sort=sort,
-        page=page,
-        limit=limit,
+        page=page.page,
+        limit=page.limit,
     )
     data = [transaction_service.present(doc, include_cost=True) for doc in docs]
-    return paged_response(data, page, limit, total, summary=summary)
+    return paginated(data, page, total, summary=summary)
 
 
 @router.get("/{transaction_id}", summary="Detail transaksi lengkap")
@@ -53,4 +54,4 @@ async def get_transaction(
     db=Depends(get_db),
 ):
     doc = await transaction_service.get_transaction(db, transaction_id)
-    return ok_response(transaction_service.present(doc, include_cost=True))
+    return ok(transaction_service.present(doc, include_cost=True))

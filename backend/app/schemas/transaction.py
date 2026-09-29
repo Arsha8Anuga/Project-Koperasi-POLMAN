@@ -81,7 +81,7 @@ class TransactionOut(CamelModel):
     created_at: UtcDatetime
 
     @classmethod
-    def from_doc(cls, doc: dict) -> "TransactionOut":
+    def from_doc(cls, doc: dict) -> TransactionOut:
         """Buat objek dari dokumen MongoDB (kunci _id diubah menjadi id)."""
         data = dict(doc)
         data["id"] = str(data.pop("_id"))

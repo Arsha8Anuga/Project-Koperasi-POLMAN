@@ -1,93 +1,52 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { Chart as ChartComponent } from 'vue-chartjs'
-import {
-  Chart as ChartJS, Title, Tooltip, Legend, BarElement, LineElement, PointElement,
-  CategoryScale, LinearScale, BarController, LineController,
-} from 'chart.js'
-import { reportsApi } from '../../services/reportsApi'
-import type { StockItem, StockStatus, ReportParams } from '../../types/report'
+import type { ChartData, ChartOptions } from 'chart.js'
+import { computed } from 'vue'
+import { Bar } from 'vue-chartjs'
+import './setup'
+import { useChartTheme } from '@/composables/useChartTheme'
+import type { StockReportItem } from '@/types/api'
 
-ChartJS.register(
-  Title, Tooltip, Legend, BarElement, LineElement, PointElement,
-  CategoryScale, LinearScale, BarController, LineController,
-)
+/** Stok vs stok minimum. Batang merah/kuning = perlu restock. */
+const props = defineProps<{ items: StockReportItem[] }>()
+const t = useChartTheme()
 
-const items = ref<StockItem[]>([])
-const loading = ref(false)
-const errorMsg = ref('')
-
-const statusColor: Record<StockStatus, string> = {
-  AMAN: '#22c55e',
-  MENIPIS: '#f59e0b',
-  HABIS: '#ef4444',
-}
-
-async function load(params: ReportParams) {
-  loading.value = true
-  errorMsg.value = ''
-  try {
-    items.value = await reportsApi.stock(params)
-  } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : 'Terjadi kesalahan'
-  } finally {
-    loading.value = false
-  }
-}
-defineExpose({ load })
-
-const chartData = computed(() => ({
-  labels: items.value.map((i) => i.name),
+const data = computed<ChartData<'bar'>>(() => ({
+  labels: props.items.map((i) => i.sku),
   datasets: [
     {
-      type: 'bar' as const,
       label: 'Stok',
-      data: items.value.map((i) => i.stock),
-      backgroundColor: items.value.map((i) => statusColor[i.stockStatus]),
+      data: props.items.map((i) => i.stock),
+      backgroundColor: props.items.map((i) =>
+        i.stockStatus === 'OUT' ? t.value.danger : i.stockStatus === 'LOW' ? t.value.warning : t.value.navy,
+      ),
+      borderRadius: 4,
+      maxBarThickness: 26,
     },
     {
-      type: 'line' as const,
       label: 'Stok minimum',
-      data: items.value.map((i) => i.minimumStock),
-      borderColor: '#334155',
-      borderDash: [6, 4],
-      pointRadius: 0,
-      fill: false,
+      data: props.items.map((i) => i.minimumStock),
+      backgroundColor: t.value.dark ? 'rgba(154,167,191,0.25)' : 'rgba(83,96,122,0.18)',
+      borderRadius: 4,
+      maxBarThickness: 26,
     },
   ],
 }))
 
-const chartOptions = {
+const options = computed<ChartOptions<'bar'>>(() => ({
   responsive: true,
   maintainAspectRatio: false,
-  scales: { y: { beginAtZero: true } },
-}
+  interaction: { mode: 'index', intersect: false },
+  plugins: {
+    legend: { position: 'bottom', labels: { color: t.value.text } },
+    tooltip: { callbacks: { title: (items) => props.items[items[0]?.dataIndex ?? 0]?.name ?? '' } },
+  },
+  scales: {
+    x: { grid: { display: false }, ticks: { color: t.value.text, maxRotation: 60, autoSkip: false, font: { size: 10 } } },
+    y: { beginAtZero: true, grid: { color: t.value.grid }, border: { display: false }, ticks: { color: t.value.text, precision: 0 } },
+  },
+}))
 </script>
 
 <template>
-  <div class="card">
-    <h3>Stok Produk</h3>
-
-    <p v-if="loading">Memuat...</p>
-    <p v-else-if="errorMsg" class="warn">{{ errorMsg }}</p>
-    <p v-else-if="items.length === 0">Belum ada data.</p>
-
-    <div v-else style="height: 320px">
-      <ChartComponent type="bar" :data="chartData" :options="chartOptions" />
-    </div>
-
-    <div v-if="items.length" class="legend">
-      <span><i :style="{ background: statusColor.AMAN }" /> Aman</span>
-      <span><i :style="{ background: statusColor.MENIPIS }" /> Menipis</span>
-      <span><i :style="{ background: statusColor.HABIS }" /> Habis</span>
-    </div>
-  </div>
+  <Bar :data="data" :options="options" />
 </template>
-
-<style scoped>
-.card { max-width: 600px; margin: 0 auto; padding: 16px; border: 1px solid #ccc; }
-h3 { margin-top: 0; text-align: center; }
-.warn { color: #c00; text-align: center; }
-.legend { display: flex; gap: 16px; justify-content: center; margin-top: 8px; font-size: 14px; }
-.legend i { display: inline-block; width: 10px; height: 10px; margin-right: 4px; border-radius: 2px; }
-</style>

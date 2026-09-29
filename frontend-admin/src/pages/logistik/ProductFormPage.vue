@@ -1,119 +1,212 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { ArrowLeftIcon } from '@lucide/vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import ErrorAlert from '@/components/common/ErrorAlert.vue'
 import FormField from '@/components/form/FormField.vue'
-import { categoryApi } from '@/services/categoryApi'
-import { productApi } from '@/services/productApi'
-import type { Category } from '@/types/api'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { Separator } from '@/components/ui/separator'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Spinner } from '@/components/ui/spinner'
+import { categoryApi, productApi } from '@/services/api'
+import { ApiException, errorMessage } from '@/services/apiClient'
+import { useToast } from '@/composables/useToast'
+import type { Category, Product, ProductInput } from '@/types/api'
+import { formatRupiah } from '@/utils/format'
 
 const route = useRoute()
 const router = useRouter()
-const id = route.params.id as string | undefined
-const isEdit = !!id
+const toast = useToast()
 
+const id = computed(() => (route.params.id ? String(route.params.id) : null))
 const categories = ref<Category[]>([])
-const loading = ref(false)
+const product = ref<Product | null>(null)
+const loading = ref(true)
 const saving = ref(false)
-const errorMsg = ref('')
-const fieldErrors = reactive<Record<string, string>>({})
+const error = ref('')
+const errors = reactive<Record<string, string>>({})
 
 const form = reactive({
   sku: '',
+  barcode: '',
   name: '',
   categoryId: '',
-  sellPrice: 0,
+  unit: 'pcs',
+  sellingPrice: 0,
   minimumStock: 0,
+  imageUrl: '',
+})
+
+onMounted(async () => {
+  try {
+    categories.value = await categoryApi.list(true)
+    if (id.value) {
+      product.value = await productApi.get(id.value)
+      const p = product.value
+      Object.assign(form, {
+        sku: p.sku,
+        barcode: p.barcode ?? '',
+        name: p.name,
+        categoryId: p.categoryId,
+        unit: p.unit,
+        sellingPrice: p.sellingPrice,
+        minimumStock: p.minimumStock,
+        imageUrl: p.imageUrl ?? '',
+      })
+      // kategori produk mungkin sudah nonaktif: tetap tampilkan supaya select tidak kosong
+      if (!categories.value.some((c) => c.id === p.categoryId) && p.categoryName) {
+        categories.value.push({ id: p.categoryId, name: `${p.categoryName} (nonaktif)`, description: null, isActive: false })
+      }
+    }
+  } catch (e) {
+    error.value = errorMessage(e, 'Gagal memuat data')
+  } finally {
+    loading.value = false
+  }
 })
 
 function validate(): boolean {
-  Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k])
-  if (!form.sku) fieldErrors.sku = 'SKU wajib diisi'
-  if (!form.name) fieldErrors.name = 'Nama wajib diisi'
-  if (!form.categoryId) fieldErrors.categoryId = 'Kategori wajib dipilih'
-  if (form.sellPrice < 0) fieldErrors.sellPrice = 'Harga tidak boleh negatif'
-  if (form.minimumStock < 0) fieldErrors.minimumStock = 'Stok minimum tidak boleh negatif'
-  return Object.keys(fieldErrors).length === 0
+  for (const k of Object.keys(errors)) delete errors[k]
+  if (!form.sku.trim()) errors.sku = 'SKU wajib diisi'
+  if (!form.name.trim()) errors.name = 'Nama wajib diisi'
+  if (!form.categoryId) errors.categoryId = 'Pilih kategori'
+  if (!form.unit.trim()) errors.unit = 'Satuan wajib diisi'
+  if (!Number.isInteger(form.sellingPrice) || form.sellingPrice < 0) errors.sellingPrice = 'Harga harus bilangan bulat ≥ 0'
+  if (!Number.isInteger(form.minimumStock) || form.minimumStock < 0) errors.minimumStock = 'Harus bilangan bulat ≥ 0'
+  return Object.keys(errors).length === 0
 }
 
 async function submit() {
   if (!validate()) return
   saving.value = true
-  errorMsg.value = ''
+  error.value = ''
+  const body: ProductInput = {
+    sku: form.sku.trim(),
+    barcode: form.barcode.trim() || null,
+    name: form.name.trim(),
+    categoryId: form.categoryId,
+    unit: form.unit.trim(),
+    sellingPrice: form.sellingPrice,
+    minimumStock: form.minimumStock,
+    imageUrl: form.imageUrl.trim() || null,
+  }
   try {
-    if (isEdit && id) {
-      await productApi.update(id, { ...form })
-    } else {
-      await productApi.create({ ...form })
-    }
-    router.push('/logistik/products')
+    const saved = id.value ? await productApi.update(id.value, body) : await productApi.create(body)
+    toast.success(id.value ? 'Produk diperbarui' : `Produk ${saved.sku} dibuat`)
+    router.push({ name: 'products' })
   } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : 'Gagal menyimpan produk'
+    if (e instanceof ApiException) Object.assign(errors, e.fieldErrors())
+    error.value = errorMessage(e, 'Gagal menyimpan produk')
   } finally {
     saving.value = false
   }
 }
-
-onMounted(async () => {
-  categories.value = await categoryApi.list()
-  if (isEdit && id) {
-    loading.value = true
-    try {
-      const p = await productApi.get(id)
-      form.sku = p.sku
-      form.name = p.name
-      form.categoryId = p.categoryId
-      form.sellPrice = p.sellPrice
-      form.minimumStock = p.minimumStock
-    } catch (e) {
-      errorMsg.value = e instanceof Error ? e.message : 'Gagal memuat produk'
-    } finally {
-      loading.value = false
-    }
-  }
-})
 </script>
 
 <template>
-  <div class="max-w-xl">
-    <h1 class="mb-4 text-lg font-semibold">{{ isEdit ? 'Ubah Produk' : 'Produk Baru' }}</h1>
+  <Button as-child variant="ghost" size="sm" class="mb-4 -ml-2">
+    <RouterLink :to="{ name: 'products' }"><ArrowLeftIcon /> Produk</RouterLink>
+  </Button>
+  <h1 class="mb-6 text-2xl font-bold tracking-tight">{{ id ? 'Ubah produk' : 'Produk baru' }}</h1>
 
-    <p v-if="loading" class="text-sm text-gray-400">Memuat data...</p>
+  <div v-if="loading" class="grid gap-6 lg:grid-cols-[1fr_18rem]">
+    <Skeleton class="h-[30rem] rounded-xl" />
+    <Skeleton class="h-48 rounded-xl" />
+  </div>
 
-    <form v-else class="space-y-4 rounded-xl border bg-white p-6" @submit.prevent="submit">
-      <FormField label="SKU" required :error="fieldErrors.sku">
-        <input v-model="form.sku" type="text" class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-      </FormField>
+  <div v-else class="grid items-start gap-6 lg:grid-cols-[1fr_18rem]">
+    <Card>
+      <form novalidate @submit.prevent="submit">
+        <CardContent class="space-y-5">
+          <ErrorAlert v-if="error" :message="error" />
 
-      <FormField label="Nama Produk" required :error="fieldErrors.name">
-        <input v-model="form.name" type="text" class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-      </FormField>
+          <div class="grid gap-5 sm:grid-cols-2">
+            <FormField label="SKU" for="sku" required :error="errors.sku" hint="Kode unik, otomatis huruf besar">
+              <Input id="sku" v-model="form.sku" class="font-mono uppercase" :aria-invalid="!!errors.sku || undefined" maxlength="40" />
+            </FormField>
+            <FormField label="Barcode" for="barcode" :error="errors.barcode" hint="Opsional">
+              <Input id="barcode" v-model="form.barcode" class="font-mono" :aria-invalid="!!errors.barcode || undefined" maxlength="40" />
+            </FormField>
+          </div>
+          <FormField label="Nama produk" for="name" required :error="errors.name">
+            <Input id="name" v-model="form.name" :aria-invalid="!!errors.name || undefined" maxlength="120" />
+          </FormField>
+          <div class="grid gap-5 sm:grid-cols-2">
+            <FormField label="Kategori" for="category" required :error="errors.categoryId">
+              <NativeSelect id="category" v-model="form.categoryId" class="w-full" :aria-invalid="!!errors.categoryId || undefined">
+                <NativeSelectOption value="" disabled>Pilih kategori</NativeSelectOption>
+                <NativeSelectOption v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</NativeSelectOption>
+              </NativeSelect>
+            </FormField>
+            <FormField label="Satuan" for="unit" required :error="errors.unit" hint="pcs, botol, kg, …">
+              <Input id="unit" v-model="form.unit" :aria-invalid="!!errors.unit || undefined" maxlength="20" />
+            </FormField>
+          </div>
+          <div class="grid gap-5 sm:grid-cols-2">
+            <FormField label="Harga jual (Rp)" for="price" required :error="errors.sellingPrice">
+              <Input
+                id="price"
+                v-model.number="form.sellingPrice"
+                type="number"
+                min="0"
+                step="1"
+                class="num"
+                :aria-invalid="!!errors.sellingPrice || undefined"
+              />
+            </FormField>
+            <FormField label="Stok minimum" for="min" required :error="errors.minimumStock" hint="Di bawah angka ini stok dianggap menipis">
+              <Input
+                id="min"
+                v-model.number="form.minimumStock"
+                type="number"
+                min="0"
+                step="1"
+                class="num"
+                :aria-invalid="!!errors.minimumStock || undefined"
+              />
+            </FormField>
+          </div>
+          <FormField label="URL gambar" for="image" :error="errors.imageUrl" hint="Opsional">
+            <Input id="image" v-model="form.imageUrl" type="url" placeholder="https://…" :aria-invalid="!!errors.imageUrl || undefined" />
+          </FormField>
+        </CardContent>
+        <Separator class="my-6" />
+        <CardFooter class="gap-2">
+          <Button type="submit" :disabled="saving"><Spinner v-if="saving" /> Simpan</Button>
+          <Button as-child variant="outline"><RouterLink :to="{ name: 'products' }">Batal</RouterLink></Button>
+        </CardFooter>
+      </form>
+    </Card>
 
-      <FormField label="Kategori" required :error="fieldErrors.categoryId">
-        <select v-model="form.categoryId" class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-          <option value="" disabled>Pilih kategori</option>
-          <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</option>
-        </select>
-      </FormField>
-
-      <FormField label="Harga Jual" required :error="fieldErrors.sellPrice">
-        <input v-model.number="form.sellPrice" type="number" min="0" class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-      </FormField>
-
-      <FormField label="Stok Minimum" required :error="fieldErrors.minimumStock">
-        <input v-model.number="form.minimumStock" type="number" min="0" class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-      </FormField>
-
-      <p v-if="errorMsg" class="text-sm text-red-600">{{ errorMsg }}</p>
-
-      <div class="flex gap-3">
-        <button type="submit" :disabled="saving"
-          class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-          {{ saving ? 'Menyimpan...' : 'Simpan' }}
-        </button>
-        <RouterLink to="/logistik/products" class="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50">
-          Batal
-        </RouterLink>
-      </div>
-    </form>
+    <Card class="text-sm">
+      <CardHeader>
+        <CardTitle class="text-base">Stok & HPP</CardTitle>
+        <CardDescription>Diperbarui otomatis setiap restock.</CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-3">
+        <template v-if="product">
+          <div class="flex justify-between">
+            <span class="text-muted-foreground">Stok saat ini</span>
+            <span class="num font-semibold">{{ product.stock }} {{ product.unit }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-muted-foreground">HPP rata-rata</span>
+            <span class="num font-semibold">{{ formatRupiah(product.costPrice) }}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-muted-foreground">Harga beli terakhir</span>
+            <span class="num font-semibold">{{ formatRupiah(product.lastPurchasePrice) }}</span>
+          </div>
+          <Separator />
+        </template>
+        <p class="text-muted-foreground">
+          Stok, HPP, dan harga beli <strong class="text-foreground">tidak bisa diubah di sini</strong>. HPP dihitung sebagai
+          rata-rata bergerak dari setiap restock.
+        </p>
+      </CardContent>
+    </Card>
   </div>
 </template>

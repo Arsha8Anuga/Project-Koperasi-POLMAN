@@ -1,105 +1,148 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { EllipsisIcon, KeyRoundIcon, PlusIcon, PowerIcon, SquarePenIcon } from '@lucide/vue'
+import { reactive, ref } from 'vue'
+import ActiveBadge from '@/components/common/ActiveBadge.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
-import FormModal from '@/components/common/FormModal.vue'
-import { userApi } from '@/services/userApi'
-import type { AdminUser, Role } from '@/types/api'
+import ErrorAlert from '@/components/common/ErrorAlert.vue'
+import FilterToggle from '@/components/common/FilterToggle.vue'
+import Modal from '@/components/common/Modal.vue'
+import PageHeader from '@/components/common/PageHeader.vue'
+import SearchInput from '@/components/common/SearchInput.vue'
+import FormField from '@/components/form/FormField.vue'
+import DataTable from '@/components/table/DataTable.vue'
+import TablePagination from '@/components/table/TablePagination.vue'
+import type { Column } from '@/components/table/types'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { DialogFooter } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { Spinner } from '@/components/ui/spinner'
+import { usePagination } from '@/composables/usePagination'
+import { userApi } from '@/services/api'
+import { ApiException, errorMessage } from '@/services/apiClient'
+import { useAuthStore } from '@/stores/auth'
+import { useToast } from '@/composables/useToast'
+import type { Role, User } from '@/types/api'
+import { formatDate } from '@/utils/format'
 
-const users = ref<AdminUser[]>([])
-const loading = ref(false)
-const errorMsg = ref('')
+const auth = useAuthStore()
+const toast = useToast()
+const roles: { value: Role; label: string }[] = [
+  { value: 'KASIR', label: 'Kasir' },
+  { value: 'LOGISTIK', label: 'Logistik' },
+  { value: 'OWNER', label: 'Owner' },
+  { value: 'ADMIN', label: 'Admin' },
+]
+const roleLabel = (r: Role) => roles.find((x) => x.value === r)?.label ?? r
 
-const roles: Role[] = ['OWNER', 'LOGISTIK', 'ADMIN', 'KASIR']
+const list = usePagination<User, { search: string; role: Role | ''; isActive: boolean | '' }>((q) => userApi.list(q), {
+  search: '',
+  role: '',
+  isActive: '',
+})
+list.load()
 
-const showForm = ref(false)
-const editing = ref<AdminUser | null>(null)
-const form = reactive({ name: '', username: '', role: 'KASIR' as Role, password: '' })
-const fieldErrors = reactive<Record<string, string>>({})
+const activeOptions: { value: boolean | ''; label: string }[] = [
+  { value: '', label: 'Semua' },
+  { value: true, label: 'Aktif' },
+  { value: false, label: 'Nonaktif' },
+]
+
+const columns: Column[] = [
+  { key: 'name', label: 'Pengguna' },
+  { key: 'role', label: 'Peran' },
+  { key: 'isActive', label: 'Status' },
+  { key: 'createdAt', label: 'Dibuat' },
+  { key: 'actions', label: '', align: 'right' },
+]
+const isSelf = (u: User) => u.id === auth.user?.id
+
+// ---- buat / ubah ----
+const formOpen = ref(false)
+const editing = ref<User | null>(null)
+const form = reactive({ name: '', username: '', password: '', role: 'KASIR' as Role })
+const errors = reactive<Record<string, string>>({})
 const saving = ref(false)
 
-const showConfirm = ref(false)
-const toToggle = ref<AdminUser | null>(null)
-const toggling = ref(false)
-
-async function load() {
-  loading.value = true
-  errorMsg.value = ''
-  try {
-    users.value = await userApi.list()
-  } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : 'Gagal memuat user'
-  } finally {
-    loading.value = false
-  }
-}
-onMounted(load)
-
-function resetForm() {
-  form.name = ''
-  form.username = ''
-  form.role = 'KASIR'
-  form.password = ''
-  Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k])
-}
-
-function openCreate() {
-  editing.value = null
-  resetForm()
-  showForm.value = true
-}
-
-function openEdit(u: AdminUser) {
+function openForm(u: User | null) {
   editing.value = u
-  form.name = u.name
-  form.username = u.username
-  form.role = u.role
-  form.password = ''
-  Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k])
-  showForm.value = true
+  Object.assign(form, { name: u?.name ?? '', username: u?.username ?? '', password: '', role: u?.role ?? 'KASIR' })
+  for (const k of Object.keys(errors)) delete errors[k]
+  formOpen.value = true
 }
 
-function validate(): boolean {
-  Object.keys(fieldErrors).forEach((k) => delete fieldErrors[k])
-  if (!form.name.trim()) fieldErrors.name = 'Nama wajib diisi'
-  if (!form.username.trim()) fieldErrors.username = 'Username wajib diisi'
-  if (!editing.value && !form.password.trim()) fieldErrors.password = 'Password wajib diisi untuk user baru'
-  return Object.keys(fieldErrors).length === 0
-}
-
-async function submitForm() {
-  if (!validate()) return
+async function save() {
+  for (const k of Object.keys(errors)) delete errors[k]
+  if (!form.name.trim()) errors.name = 'Nama wajib diisi'
+  if (!editing.value) {
+    if (!/^[a-z0-9._]{3,32}$/.test(form.username.trim().toLowerCase()))
+      errors.username = '3–32 karakter: huruf kecil, angka, titik, underscore'
+    if (form.password.length < 8) errors.password = 'Minimal 8 karakter'
+  }
+  if (Object.keys(errors).length) return
   saving.value = true
   try {
-    const input = { name: form.name.trim(), username: form.username.trim(), role: form.role, password: form.password || undefined }
-    if (editing.value) {
-      await userApi.update(editing.value.id, input)
-    } else {
-      await userApi.create(input)
-    }
-    showForm.value = false
-    await load()
+    if (editing.value) await userApi.update(editing.value.id, { name: form.name.trim(), role: form.role })
+    else
+      await userApi.create({ name: form.name.trim(), username: form.username.trim(), password: form.password, role: form.role })
+    toast.success(editing.value ? 'Pengguna diperbarui' : `Pengguna ${form.username.trim().toLowerCase()} dibuat`)
+    formOpen.value = false
+    list.reload()
   } catch (e) {
-    fieldErrors.username = e instanceof Error ? e.message : 'Gagal menyimpan user'
+    if (e instanceof ApiException) Object.assign(errors, e.fieldErrors())
+    if (!Object.keys(errors).length) errors.name = errorMessage(e)
   } finally {
     saving.value = false
   }
 }
 
-function askToggle(u: AdminUser) {
-  toToggle.value = u
-  showConfirm.value = true
+// ---- reset password ----
+const resetting = ref<User | null>(null)
+const newPassword = ref('')
+const resetError = ref('')
+const resetSaving = ref(false)
+function openReset(u: User) {
+  resetting.value = u
+  newPassword.value = ''
+  resetError.value = ''
+}
+async function doReset() {
+  if (!resetting.value) return
+  if (newPassword.value.length < 8) return (resetError.value = 'Minimal 8 karakter')
+  resetSaving.value = true
+  try {
+    await userApi.resetPassword(resetting.value.id, newPassword.value)
+    toast.success(`Password ${resetting.value.username} direset`)
+    resetting.value = null
+  } catch (e) {
+    resetError.value = errorMessage(e)
+  } finally {
+    resetSaving.value = false
+  }
 }
 
-async function confirmToggle() {
-  if (!toToggle.value) return
+// ---- aktif / nonaktif ----
+const target = ref<User | null>(null)
+const toggling = ref(false)
+async function toggle() {
+  if (!target.value) return
   toggling.value = true
   try {
-    await userApi.toggleActive(toToggle.value.id)
-    showConfirm.value = false
-    await load()
+    const u = await userApi.setStatus(target.value.id, !target.value.isActive)
+    toast.success(`${u.name} ${u.isActive ? 'diaktifkan' : 'dinonaktifkan'}`)
+    target.value = null
+    list.reload()
   } catch (e) {
-    errorMsg.value = e instanceof Error ? e.message : 'Gagal mengubah status user'
-    showConfirm.value = false
+    toast.error(errorMessage(e))
   } finally {
     toggling.value = false
   }
@@ -107,101 +150,111 @@ async function confirmToggle() {
 </script>
 
 <template>
-  <div class="space-y-4">
-    <div class="flex items-center justify-between">
-      <h1 class="text-lg font-semibold">User Management</h1>
-      <button class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700" @click="openCreate">
-        + User Baru
-      </button>
+  <PageHeader title="Pengguna" subtitle="Pengguna tidak dihapus — nonaktifkan supaya jejak audit tetap utuh.">
+    <Button @click="openForm(null)"><PlusIcon /> Pengguna baru</Button>
+  </PageHeader>
+
+  <Card class="gap-0 overflow-hidden py-0">
+    <div class="flex flex-wrap items-center gap-2 border-b p-4">
+      <SearchInput v-model="list.filters.search" placeholder="Cari nama atau username" />
+      <NativeSelect v-model="list.filters.role" aria-label="Peran">
+        <NativeSelectOption value="">Semua peran</NativeSelectOption>
+        <NativeSelectOption v-for="r in roles" :key="r.value" :value="r.value">{{ r.label }}</NativeSelectOption>
+      </NativeSelect>
+      <FilterToggle v-model="list.filters.isActive" :options="activeOptions" label="Status" />
     </div>
+    <ErrorAlert v-if="list.error.value" :message="list.error.value" class="m-4 w-auto" />
+    <DataTable :columns="columns" :rows="list.rows.value" :loading="list.loading.value" row-key="id" empty="Tidak ada pengguna">
+      <template #cell-name="{ row }">
+        <p class="flex items-center gap-1.5 font-semibold">
+          {{ row.name }} <Badge v-if="isSelf(row)" variant="outline">Anda</Badge>
+        </p>
+        <p class="font-mono text-xs text-muted-foreground">{{ row.username }}</p>
+      </template>
+      <template #cell-role="{ row }"><Badge variant="soft">{{ roleLabel(row.role) }}</Badge></template>
+      <template #cell-isActive="{ row }"><ActiveBadge :active="row.isActive" /></template>
+      <template #cell-createdAt="{ row }"><span class="text-muted-foreground">{{ formatDate(row.createdAt) }}</span></template>
+      <template #cell-actions="{ row }">
+        <DropdownMenu :modal="false">
+          <DropdownMenuTrigger as-child>
+            <Button variant="ghost" size="icon-sm" :aria-label="`Aksi untuk ${row.username}`"><EllipsisIcon /></Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" class="w-44">
+            <DropdownMenuItem @select="openForm(row)"><SquarePenIcon /> Ubah</DropdownMenuItem>
+            <DropdownMenuItem @select="openReset(row)"><KeyRoundIcon /> Reset password</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem :variant="row.isActive ? 'destructive' : 'default'" :disabled="isSelf(row)" @select="target = row">
+              <PowerIcon /> {{ row.isActive ? 'Nonaktifkan' : 'Aktifkan' }}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </template>
+    </DataTable>
+    <TablePagination v-model="list.page.value" :meta="list.meta.value" :loading="list.loading.value" />
+  </Card>
 
-    <p v-if="errorMsg" class="text-sm text-red-600">{{ errorMsg }}</p>
+  <Modal :open="formOpen" :title="editing ? 'Ubah pengguna' : 'Pengguna baru'" @close="formOpen = false">
+    <form class="space-y-4" @submit.prevent="save">
+      <FormField label="Nama lengkap" for="u-name" required :error="errors.name">
+        <Input id="u-name" v-model="form.name" :aria-invalid="!!errors.name || undefined" maxlength="60" />
+      </FormField>
+      <FormField
+        label="Username"
+        for="u-username"
+        :required="!editing"
+        :error="errors.username"
+        :hint="editing ? 'Username tidak bisa diubah' : undefined"
+      >
+        <Input
+          id="u-username"
+          v-model="form.username"
+          class="font-mono lowercase"
+          :aria-invalid="!!errors.username || undefined"
+          :disabled="!!editing"
+          autocomplete="off"
+        />
+      </FormField>
+      <FormField v-if="!editing" label="Password awal" for="u-pass" required :error="errors.password" hint="Minimal 8 karakter">
+        <Input id="u-pass" v-model="form.password" type="password" :aria-invalid="!!errors.password || undefined" autocomplete="new-password" />
+      </FormField>
+      <FormField
+        label="Peran"
+        for="u-role"
+        required
+        :error="errors.role"
+        :hint="editing && isSelf(editing) ? 'Anda tidak bisa mengubah peran sendiri' : undefined"
+      >
+        <NativeSelect id="u-role" v-model="form.role" class="w-full" :disabled="!!editing && isSelf(editing)">
+          <NativeSelectOption v-for="r in roles" :key="r.value" :value="r.value">{{ r.label }}</NativeSelectOption>
+        </NativeSelect>
+      </FormField>
+      <DialogFooter class="pt-2">
+        <Button type="button" variant="outline" @click="formOpen = false">Batal</Button>
+        <Button type="submit" :disabled="saving"><Spinner v-if="saving" /> Simpan</Button>
+      </DialogFooter>
+    </form>
+  </Modal>
 
-    <div class="overflow-hidden rounded-xl border bg-white">
-      <table class="w-full text-sm">
-        <thead class="border-b bg-gray-50 text-left text-gray-500">
-          <tr>
-            <th class="px-4 py-3 font-medium">Nama</th>
-            <th class="px-4 py-3 font-medium">Username</th>
-            <th class="px-4 py-3 font-medium">Role</th>
-            <th class="px-4 py-3 font-medium">Status</th>
-            <th class="px-4 py-3 font-medium">Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-if="loading">
-            <td colspan="5" class="px-4 py-8 text-center text-gray-400">Memuat data...</td>
-          </tr>
-          <tr v-else-if="users.length === 0">
-            <td colspan="5" class="px-4 py-8 text-center text-gray-400">Belum ada user</td>
-          </tr>
-          <tr v-for="u in users" v-else :key="u.id" class="border-b last:border-0 hover:bg-gray-50">
-            <td class="px-4 py-3">{{ u.name }}</td>
-            <td class="px-4 py-3">{{ u.username }}</td>
-            <td class="px-4 py-3">
-              <span class="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-700">{{ u.role }}</span>
-            </td>
-            <td class="px-4 py-3">
-              <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="u.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'">
-                {{ u.isActive ? 'Aktif' : 'Nonaktif' }}
-              </span>
-            </td>
-            <td class="px-4 py-3">
-              <button class="mr-3 text-blue-600 hover:underline" @click="openEdit(u)">Ubah</button>
-              <button class="text-amber-600 hover:underline" @click="askToggle(u)">
-                {{ u.isActive ? 'Nonaktifkan' : 'Aktifkan' }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+  <Modal :open="!!resetting" :title="`Reset password ${resetting?.username ?? ''}`" size="sm" @close="resetting = null">
+    <form class="space-y-4" @submit.prevent="doReset">
+      <FormField label="Password baru" for="new-pass" required :error="resetError" hint="Minimal 8 karakter">
+        <Input id="new-pass" v-model="newPassword" type="password" :aria-invalid="!!resetError || undefined" autocomplete="new-password" />
+      </FormField>
+      <DialogFooter>
+        <Button type="button" variant="outline" @click="resetting = null">Batal</Button>
+        <Button type="submit" :disabled="resetSaving"><Spinner v-if="resetSaving" /> Reset</Button>
+      </DialogFooter>
+    </form>
+  </Modal>
 
-    <FormModal :open="showForm" :title="editing ? 'Ubah User' : 'User Baru'" @close="showForm = false">
-      <form class="space-y-4" @submit.prevent="submitForm">
-        <div>
-          <label class="mb-1 block text-sm font-medium">Nama</label>
-          <input v-model="form.name" type="text" class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-          <p v-if="fieldErrors.name" class="mt-1 text-xs text-red-600">{{ fieldErrors.name }}</p>
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium">Username</label>
-          <input v-model="form.username" type="text" class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-          <p v-if="fieldErrors.username" class="mt-1 text-xs text-red-600">{{ fieldErrors.username }}</p>
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium">Role</label>
-          <select v-model="form.role" class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-            <option v-for="r in roles" :key="r" :value="r">{{ r }}</option>
-          </select>
-        </div>
-        <div>
-          <label class="mb-1 block text-sm font-medium">
-            Password {{ editing ? '(kosongkan jika tidak diubah)' : '' }}
-          </label>
-          <input v-model="form.password" type="password" class="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500" />
-          <p v-if="fieldErrors.password" class="mt-1 text-xs text-red-600">{{ fieldErrors.password }}</p>
-        </div>
-        <div class="flex justify-end gap-3">
-          <button type="button" class="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50" @click="showForm = false">
-            Batal
-          </button>
-          <button type="submit" :disabled="saving"
-            class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-            {{ saving ? 'Menyimpan...' : 'Simpan' }}
-          </button>
-        </div>
-      </form>
-    </FormModal>
-
-    <ConfirmModal
-      :open="showConfirm"
-      :title="toToggle?.isActive ? 'Nonaktifkan user?' : 'Aktifkan user?'"
-      :message="`User '${toToggle?.name}' akan ${toToggle?.isActive ? 'dinonaktifkan' : 'diaktifkan'}.`"
-      :confirm-text="toToggle?.isActive ? 'Nonaktifkan' : 'Aktifkan'"
-      :danger="toToggle?.isActive"
-      @confirm="confirmToggle"
-      @cancel="showConfirm = false"
-    />
-  </div>
+  <ConfirmModal
+    :open="!!target"
+    :title="target?.isActive ? 'Nonaktifkan pengguna?' : 'Aktifkan pengguna?'"
+    :message="target?.isActive ? `${target?.name} langsung tidak bisa masuk, termasuk sesi yang sedang berjalan.` : `${target?.name} bisa masuk kembali.`"
+    :confirm-text="target?.isActive ? 'Nonaktifkan' : 'Aktifkan'"
+    :danger="target?.isActive"
+    :loading="toggling"
+    @confirm="toggle"
+    @cancel="target = null"
+  />
 </template>
