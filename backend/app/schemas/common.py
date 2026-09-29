@@ -1,47 +1,56 @@
-"""Model dasar & wrapper response bersama (milik integrator). Schema domain ada di file masing-masing.
+"""Komponen schema yang dipakai bersama oleh modul BE-3.
 
-- `CamelModel`: field Python snake_case, JSON camelCase (dokumen 04 §1).
-- `ObjectIdStr`: menerima ObjectId dari MongoDB, keluar sebagai string hex.
-- `DocModel`: untuk objek yang dibaca dari MongoDB — `_id` otomatis menjadi `id`.
-- `ApiResponse[T]` / `PaginatedResponse[T]`: bentuk response dokumen 04 §2, dipakai sebagai
-  `response_model` supaya /docs menampilkan bentuk JSON yang benar ke tim frontend.
+Kalau BE-1 sudah membuat file dengan nama yang sama, gabungkan isinya.
 """
 
-from datetime import UTC, datetime
-from typing import Annotated, Any, Generic, TypeVar
+from __future__ import annotations
 
-from bson import ObjectId
-from pydantic import AliasChoices, BaseModel, BeforeValidator, ConfigDict, Field, PlainSerializer
+import math
+import re
+from datetime import datetime, timezone
+from typing import Annotated, Any
+
+from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict, PlainSerializer
 from pydantic.alias_generators import to_camel
 
 
-def _oid_to_str(v: Any) -> Any:
-    return str(v) if isinstance(v, ObjectId) else v
+class CamelModel(BaseModel):
+    """Basis semua schema. JSON memakai camelCase, kode Python memakai snake_case."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        from_attributes=True,
+    )
 
 
-def _as_utc(v: Any) -> Any:
-    # Data lama/naive dianggap UTC.
-    if isinstance(v, datetime) and v.tzinfo is None:
-        return v.replace(tzinfo=UTC)
-    return v
+def _format_utc(value: datetime) -> str:
+    """Format ISO 8601 UTC, contoh 2026-09-28T03:42:10Z."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-ObjectIdStr = Annotated[str, BeforeValidator(_oid_to_str)]
-
-# Selalu dikirim sebagai "2026-09-28T03:42:10Z" (dokumen 04 §1).
+# Datetime yang keluar sebagai string UTC berakhiran Z.
 UtcDatetime = Annotated[
     datetime,
-    BeforeValidator(_as_utc),
-    PlainSerializer(lambda d: d.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), return_type=str),
+    PlainSerializer(_format_utc, return_type=str, when_used="json"),
 ]
 
+# Id dari database (ObjectId) otomatis diubah menjadi string hex.
+IdStr = Annotated[str, BeforeValidator(lambda value: str(value))]
 
-class CamelModel(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+_HEX_24 = re.compile(r"^[0-9a-fA-F]{24}$")
 
 
-class DocModel(CamelModel):
-    id: ObjectIdStr = Field(validation_alias=AliasChoices("_id", "id"))
+def _check_object_id(value: str) -> str:
+    if not _HEX_24.match(value):
+        raise ValueError("ID tidak valid")
+    return value
+
+
+# Id pada request: harus berupa 24 karakter hex.
+RequestId = Annotated[str, AfterValidator(_check_object_id)]
 
 
 class PageMeta(CamelModel):
@@ -51,42 +60,34 @@ class PageMeta(CamelModel):
     total_pages: int
 
 
-T = TypeVar("T")
+def ok_response(data: Any, message: str = "OK") -> dict:
+    """Bungkus response sukses standar."""
+    return {"success": True, "message": message, "data": data}
 
 
-class ApiResponse(CamelModel, Generic[T]):
-    success: bool = True
-    message: str = "OK"
-    data: T
+def paged_response(
+    data: list[Any],
+    page: int,
+    limit: int,
+    total: int,
+    message: str = "OK",
+    **extra: Any,
+) -> dict:
+    """Bungkus response sukses dengan pagination.
 
-
-class PaginatedResponse(CamelModel, Generic[T]):
-    """Butuh field tambahan sejajar `meta` (mis. `summary` di /transactions)? Buat subclass:
-
-        class TransactionPage(PaginatedResponse[TransactionOut]):
-            summary: TransactionSummary
-
-    Tanpa subclass, field tambahan dari `paginated(..., summary=...)` akan DIBUANG oleh FastAPI.
+    Kunci tambahan (misalnya summary) diletakkan sejajar dengan meta.
     """
-
-    success: bool = True
-    message: str = "OK"
-    data: list[T]
-    meta: PageMeta
-
-
-class ErrorInfo(CamelModel):
-    code: str
-    details: list[dict[str, Any]] = []
-
-
-class ErrorResponse(CamelModel):
-    success: bool = False
-    message: str
-    error: ErrorInfo
-
-
-# Dipakai di `responses=` router supaya /docs juga menampilkan bentuk error.
-ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
-    code: {"model": ErrorResponse} for code in (400, 401, 403, 404, 409, 422)
-}
+    meta = PageMeta(
+        page=page,
+        limit=limit,
+        total=total,
+        total_pages=math.ceil(total / limit) if limit else 0,
+    )
+    body = {
+        "success": True,
+        "message": message,
+        "data": data,
+        "meta": meta.model_dump(by_alias=True),
+    }
+    body.update(extra)
+    return body
