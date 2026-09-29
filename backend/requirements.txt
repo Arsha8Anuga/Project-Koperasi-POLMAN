@@ -6,6 +6,7 @@ pydantic-settings>=2.4,<3
 pymongo>=4.13,<5          # AsyncMongoClient (pengganti Motor). JANGAN pakai motor.
 PyJWT>=2.9,<3
 bcrypt>=4.2,<6
+tzdata>=2024.1  
 
 # Dev & test
 pytest>=8.3
