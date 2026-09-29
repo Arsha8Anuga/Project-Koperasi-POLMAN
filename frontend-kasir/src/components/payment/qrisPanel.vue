@@ -5,7 +5,7 @@ import { formatRupiah } from '../../utils/formatRupiah'
 
 const props = defineProps<{
   total: number
-  loading?: boolean // true saat request berjalan
+  loading?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -15,7 +15,6 @@ const emit = defineEmits<{
 const qrImage = ref<string>('')
 const errorMsg = ref<string>('')
 
-// Buat ulang QR setiap kali total berubah (dan sekali saat komponen muncul)
 watch(
   () => props.total,
   async (total) => {
@@ -38,22 +37,25 @@ function confirm() {
 </script>
 
 <template>
-  <div class="panel">
-    <p>Total: <strong>{{ formatRupiah(total) }}</strong></p>
+  <div class="max-w-sm mx-auto rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm">
+    <p class="text-sm text-slate-500">
+      Total: <span class="font-bold text-slate-900">{{ formatRupiah(total) }}</span>
+    </p>
 
-    <img v-if="qrImage" :src="qrImage" alt="QR pembayaran QRIS" width="240" height="240" />
-    <p v-if="errorMsg" class="warn">{{ errorMsg }}</p>
+    <img v-if="qrImage" :src="qrImage" alt="QR pembayaran QRIS" width="220" height="220" class="mx-auto mt-4 rounded-xl border border-slate-100 p-2" />
+    <p v-if="errorMsg" class="mt-2 text-xs font-medium text-rose-500">{{ errorMsg }}</p>
 
-    <p class="muted">Minta pelanggan memindai QR, lalu tekan tombol setelah pembayaran masuk.</p>
+    <p class="mt-3 text-xs text-slate-400">
+      Minta pelanggan memindai QR, lalu tekan tombol setelah pembayaran masuk.
+    </p>
 
-    <button type="button" :disabled="!qrImage || loading" @click="confirm">
+    <button
+      type="button"
+      :disabled="!qrImage || loading"
+      @click="confirm"
+      class="mt-4 w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white shadow-md transition hover:bg-indigo-700 disabled:bg-slate-300 disabled:shadow-none"
+    >
       {{ loading ? 'Memproses...' : 'Pembayaran Diterima' }}
     </button>
   </div>
 </template>
-
-<style scoped>
-.panel { max-width: 320px; margin: 16px auto; padding: 16px; border: 1px solid #ccc; text-align: center; }
-.muted { color: #666; font-size: 14px; }
-.warn { color: #c00; }
-</style>

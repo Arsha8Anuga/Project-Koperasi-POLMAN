@@ -7,39 +7,42 @@ defineProps<{ transaction: Transaction }>()
 </script>
 
 <template>
-  <div class="invoice">
-    <h2>Toko Koperasi</h2>
-    <p class="muted">{{ transaction.code }}</p>
-    <p class="muted">{{ formatDateTime(transaction.createdAt) }}</p>
-    <p>Kasir: {{ transaction.cashier.name }}</p>
-    <p v-if="transaction.member">
+  <div class="mx-auto w-[300px] rounded-2xl border border-slate-200 bg-white p-5 font-mono text-slate-800 shadow-sm">
+    <h2 class="text-center text-base font-bold text-slate-900">Toko Koperasi</h2>
+    <p class="text-center text-xs text-slate-400">{{ transaction.code }}</p>
+    <p class="text-center text-xs text-slate-400">{{ formatDateTime(transaction.createdAt) }}</p>
+
+    <p class="mt-3 text-xs text-slate-600">Kasir: {{ transaction.cashier.name }}</p>
+    <p v-if="transaction.member" class="text-xs text-slate-600">
       Anggota: {{ transaction.member.name }} ({{ transaction.member.memberNumber }})
     </p>
-    <p v-else-if="transaction.customerName">Pelanggan: {{ transaction.customerName }}</p>
+    <p v-else-if="transaction.customerName" class="text-xs text-slate-600">
+      Pelanggan: {{ transaction.customerName }}
+    </p>
 
-    <hr />
+    <hr class="my-3 border-slate-200" />
 
-    <div v-for="item in transaction.items" :key="item.productId" class="row">
-      <span>{{ item.name }}<br /><small>{{ item.quantity }} × {{ formatRupiah(item.price) }}</small></span>
-      <span>{{ formatRupiah(item.subtotal) }}</span>
+    <div v-for="item in transaction.items" :key="item.productId" class="flex justify-between py-1 text-xs">
+      <span class="text-slate-700">
+        {{ item.name }}<br />
+        <span class="text-slate-400">{{ item.quantity }} × {{ formatRupiah(item.price) }}</span>
+      </span>
+      <span class="font-medium text-slate-800">{{ formatRupiah(item.subtotal) }}</span>
     </div>
 
-    <hr />
+    <hr class="my-3 border-slate-200" />
 
-    <div class="row bold"><span>Total</span><span>{{ formatRupiah(transaction.total) }}</span></div>
-    <div class="row"><span>Metode</span><span>{{ transaction.payment.method }}</span></div>
-    <div class="row"><span>Diterima</span><span>{{ formatRupiah(transaction.payment.amountPaid) }}</span></div>
-    <!-- Kembalian disembunyikan untuk QRIS -->
-    <div v-if="transaction.payment.method === 'CASH'" class="row">
+    <div class="flex justify-between text-sm font-bold text-slate-900">
+      <span>Total</span><span>{{ formatRupiah(transaction.total) }}</span>
+    </div>
+    <div class="mt-1 flex justify-between text-xs text-slate-600">
+      <span>Metode</span><span>{{ transaction.payment.method }}</span>
+    </div>
+    <div class="flex justify-between text-xs text-slate-600">
+      <span>Diterima</span><span>{{ formatRupiah(transaction.payment.amountPaid) }}</span>
+    </div>
+    <div v-if="transaction.payment.method === 'CASH'" class="flex justify-between text-xs text-slate-600">
       <span>Kembalian</span><span>{{ formatRupiah(transaction.payment.change) }}</span>
     </div>
   </div>
 </template>
-
-<style scoped>
-.invoice { width: 300px; margin: 0 auto; padding: 16px; font-family: monospace; }
-.row { display: flex; justify-content: space-between; margin: 4px 0; }
-.bold { font-weight: bold; }
-.muted { color: #666; margin: 0; }
-h2 { text-align: center; margin: 0 0 8px; }
-</style>
