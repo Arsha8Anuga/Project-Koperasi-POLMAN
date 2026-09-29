@@ -3,7 +3,7 @@ modul kalian di bagian masing-masing (satu baris per modul, supaya konflik merge
 
 from fastapi import APIRouter
 
-from app.api.v1 import auth, members, users
+from app.api.v1 import audit_logs, auth, dashboard, members, users
 
 api_router = APIRouter()
 
@@ -11,6 +11,8 @@ api_router = APIRouter()
 api_router.include_router(auth.router)
 api_router.include_router(users.router)
 api_router.include_router(members.router)
+api_router.include_router(audit_logs.router)
+api_router.include_router(dashboard.router)
 
 # --- BE-2 --- (categories, products, suppliers, restocks, stock, reports/stock)
 
