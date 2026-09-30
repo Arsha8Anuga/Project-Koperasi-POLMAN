@@ -2,15 +2,25 @@
 
 Jalankan dari folder backend:
 
-    python -m scripts.seed              # isi data demo
-    python -m scripts.seed --reset      # hapus data demo lama dulu (minta konfirmasi)
-    python -m scripts.seed --reset --yes --sales 80
+    python -m scripts.seed                       # isi data demo
+    python -m scripts.seed --reset               # hapus data demo lama dulu (minta konfirmasi)
+    python -m scripts.seed --reset --yes --days 70 --per-day 12
 
 Yang dibuat:
 - User: 1 OWNER, 1 LOGISTIK, 1 ADMIN, 2 KASIR (dibuat hanya jika belum ada)
-- 5 kategori, 25 produk, 3 supplier, 10 anggota
-- Restock awal semua produk, restock susulan tiap minggu, dan sekitar 60 penjualan acak
-  yang tersebar di 6 minggu terakhir.
+- 5 kategori, 25 produk (dengan barcode EAN-13 contoh), 3 supplier, 10 anggota
+- Riwayat 10 minggu: restock awal, restock mingguan (Senin), dan ±900 penjualan.
+
+Penjualan TIDAK sepenuhnya acak: pola sengaja ditanam supaya AI engine punya sesuatu untuk
+ditemukan, dan hasilnya bisa dicek ke daftar pola di bawah (lihat ASSOCIATIONS & PROFILE):
+- Pasangan yang sering dibeli bersama (mi instan + telur, kopi + gula, roti + susu,
+  buku + pulpen + pensil, pasta gigi + sikat gigi, keripik + teh botol).
+- Pola mingguan: Sabtu–Minggu lebih ramai; ATK laku di hari sekolah, jajanan di akhir pekan.
+- Tren: kopi sachet & jus jeruk naik, biskuit cokelat turun.
+- Restock mingguan kadang kurang untuk produk yang laris → sesekali stok habis.
+
+Jalan di server dengan MongoDB jarak jauh butuh beberapa menit (tiap penjualan memakai
+transaction). Kecilkan --per-day kalau hanya ingin cepat.
 
 Semua transaksi dibuat lewat fungsi service yang sama dengan API (checkout dan restock),
 bukan insert langsung. Dengan begitu stok, HPP, stock movement, dan audit log tetap konsisten.
@@ -42,7 +52,6 @@ from app.services import restock_service, sale_service  # noqa: E402
 from app.utils.time import WIB, utcnow  # noqa: E402
 
 DEMO_PASSWORD = "koperasi123"  # sama dengan scripts/create_initial_users.py
-SIMULATION_DAYS = 42  # 6 minggu
 RANDOM_SEED = 2026  # hasil selalu sama setiap dijalankan
 
 # ---------------------------------------------------------------------------
@@ -157,6 +166,14 @@ class Actor:
     role: str
 
 
+def demo_barcode(index: int) -> str:
+    """EAN-13 contoh dengan prefix Indonesia (899) dan checksum valid, mis. 8990000000017.
+    Bisa dicetak / ditampilkan di layar untuk mencoba fitur scan."""
+    body = f"899{index:09d}"
+    total = sum(int(d) * (3 if i % 2 else 1) for i, d in enumerate(body))
+    return body + str((10 - total % 10) % 10)
+
+
 # ---------------------------------------------------------------------------
 # Persiapan data master
 # ---------------------------------------------------------------------------
@@ -240,11 +257,12 @@ async def ensure_master_data(db) -> tuple[dict, list[dict], list[dict]]:
         else:
             category_ids[name] = doc["_id"]
 
-    for sku, name, category, unit, price, _cost, minimum in PRODUCTS:
+    for index, (sku, name, category, unit, price, _cost, minimum) in enumerate(PRODUCTS, 1):
         if await db.products.find_one({"sku": sku}) is None:
             await db.products.insert_one(
                 {
                     "sku": sku,
+                    "barcode": demo_barcode(index),
                     "name": name,
                     "categoryId": category_ids[category],
                     "unit": unit,
@@ -322,31 +340,102 @@ def wib_datetime(day, hour: int, minute: int) -> datetime:
     return datetime(day.year, day.month, day.day, hour, minute, tzinfo=WIB).astimezone(UTC)
 
 
-def build_timeline(rng: random.Random, sales_count: int) -> list[tuple[datetime, str]]:
-    """Buat daftar kejadian berurutan waktu: restock awal, restock mingguan, dan penjualan."""
+# ---------------------------------------------------------------------------
+# Pola penjualan yang ditanam (dicari ulang oleh AI engine)
+# ---------------------------------------------------------------------------
+
+# sku: (bobot popularitas, tren per minggu, faktor akhir pekan, qty maks per transaksi)
+PROFILE: dict[str, tuple[float, float, float, int]] = {
+    "ATK-001": (5, 0.0, 0.5, 3),
+    "ATK-002": (4, 0.0, 0.5, 3),
+    "ATK-003": (2, 0.0, 0.5, 2),
+    "ATK-004": (1.5, 0.0, 0.5, 2),
+    "ATK-005": (1, 0.0, 0.5, 1),
+    "MKN-001": (4, 0.0, 1.3, 1),
+    "MKN-002": (3, -0.06, 1.4, 2),  # tren turun
+    "MKN-003": (3, 0.0, 1.6, 2),
+    "MKN-004": (9, 0.0, 1.2, 3),  # paling laris
+    "MKN-005": (3, 0.0, 1.4, 3),
+    "MNM-001": (8, 0.0, 1.3, 2),
+    "MNM-002": (4, 0.0, 1.5, 2),
+    "MNM-003": (6, 0.05, 1.0, 4),  # tren naik
+    "MNM-004": (3, 0.0, 1.3, 2),
+    "MNM-005": (1.5, 0.08, 1.4, 1),  # tren naik
+    "KBR-001": (1, 0.0, 1.0, 1),
+    "KBR-002": (1.5, 0.0, 1.0, 1),
+    "KBR-003": (2, 0.0, 1.0, 2),
+    "KBR-004": (2, 0.0, 1.0, 1),
+    "KBR-005": (1, 0.0, 1.0, 1),
+    "KHR-001": (2.5, 0.0, 1.2, 1),
+    "KHR-002": (2.5, 0.0, 1.2, 1),
+    "KHR-003": (1, 0.0, 1.3, 1),
+    "KHR-004": (3, 0.0, 1.2, 1),
+    "KHR-005": (1, 0.0, 1.0, 1),
+}
+
+# produk utama → (produk pendamping, peluang ikut dibeli)
+ASSOCIATIONS: dict[str, list[tuple[str, float]]] = {
+    "MKN-004": [("KHR-004", 0.55), ("MNM-001", 0.25)],  # mi instan + telur (+ air)
+    "MNM-003": [("KHR-001", 0.45)],  # kopi + gula
+    "MKN-001": [("MNM-004", 0.5)],  # roti + susu
+    "ATK-001": [("ATK-002", 0.6), ("ATK-003", 0.35)],  # buku + pulpen (+ pensil)
+    "ATK-003": [("ATK-004", 0.5)],  # pensil + penghapus
+    "KBR-004": [("KBR-005", 0.55)],  # pasta gigi + sikat gigi
+    "MKN-003": [("MNM-002", 0.5)],  # keripik + teh botol
+}
+
+# Senin..Minggu: banyaknya transaksi relatif
+WEEKDAY_TRAFFIC = [1.0, 0.95, 1.0, 1.05, 1.15, 1.5, 1.35]
+# jam buka 07–20 WIB, ramai pagi, siang, dan sore
+HOUR_WEIGHTS = {7: 3, 8: 2, 9: 1, 10: 1, 11: 2, 12: 3, 13: 2, 14: 1, 15: 2, 16: 3, 17: 3, 18: 2, 19: 1, 20: 1}
+
+
+def anchor_weights(day_index: int, weekend: bool) -> dict[str, float]:
+    weeks = day_index / 7
+    weights = {}
+    for sku, (weight, trend, weekend_factor, _q) in PROFILE.items():
+        w = weight * max(0.2, 1 + trend * weeks) * (weekend_factor if weekend else 1)
+        weights[sku] = w
+    return weights
+
+
+def build_basket(rng: random.Random, weights: dict[str, float]) -> dict[str, int]:
+    """Isi keranjang: 1–2 produk utama (sesuai popularitas) + pendampingnya + kadang produk acak."""
+    skus = list(weights)
+    basket: dict[str, int] = {}
+    for anchor in rng.choices(skus, weights=[weights[s] for s in skus], k=1 if rng.random() < 0.7 else 2):
+        basket[anchor] = rng.randint(1, PROFILE[anchor][3])
+        for companion, chance in ASSOCIATIONS.get(anchor, []):
+            if rng.random() < chance:
+                basket[companion] = basket.get(companion, 0) + rng.randint(1, PROFILE[companion][3])
+    if rng.random() < 0.15:
+        extra = rng.choice(skus)
+        basket[extra] = basket.get(extra, 0) + 1
+    return basket
+
+
+def build_timeline(rng: random.Random, days: int, per_day: float) -> list[tuple[datetime, str]]:
+    """Kejadian berurutan waktu: restock awal, restock tiap Senin 07.00, dan penjualan harian."""
     now = utcnow()
-    first_day = (now.astimezone(WIB) - timedelta(days=SIMULATION_DAYS - 1)).date()
+    first_day = (now.astimezone(WIB) - timedelta(days=days - 1)).date()
+    events: list[tuple[datetime, str]] = [(wib_datetime(first_day, 6, 30), "restock-initial")]
 
-    events: list[tuple[datetime, str]] = [(wib_datetime(first_day, 7, 0), "restock-initial")]
+    for offset in range(days):
+        day = first_day + timedelta(days=offset)
+        if offset > 0 and day.weekday() == 0:
+            moment = wib_datetime(day, 7, 0)
+            if moment < now:
+                events.append((moment, "restock-topup"))
 
-    # Restock susulan setiap 7 hari pukul 07.30 WIB (hanya bila waktunya sudah lewat).
-    week = 1
-    while True:
-        restock_day = first_day + timedelta(days=7 * week)
-        moment = wib_datetime(restock_day, 7, 30)
-        if moment >= now - timedelta(hours=1):
-            break
-        events.append((moment, "restock-topup"))
-        week += 1
-
-    made = 0
-    while made < sales_count:
-        day = first_day + timedelta(days=rng.randint(0, SIMULATION_DAYS - 1))
-        moment = wib_datetime(day, rng.randint(8, 16), rng.randint(0, 59))
-        if moment <= wib_datetime(first_day, 8, 0) or moment >= now - timedelta(minutes=5):
-            continue
-        events.append((moment, "sale"))
-        made += 1
+        growth = 1 + 0.01 * (offset / 7)  # toko pelan-pelan makin ramai
+        count = round(per_day * WEEKDAY_TRAFFIC[day.weekday()] * growth * rng.uniform(0.8, 1.2))
+        hours = list(HOUR_WEIGHTS)
+        for _ in range(count):
+            hour = rng.choices(hours, weights=list(HOUR_WEIGHTS.values()))[0]
+            moment = wib_datetime(day, hour, rng.randint(0, 59))
+            if moment >= now - timedelta(minutes=5):
+                continue
+            events.append((moment, f"sale:{offset}"))
 
     events.sort(key=lambda event: event[0])
     return events
@@ -365,9 +454,47 @@ async def current_stock(db, skus: list[str]) -> dict[str, dict]:
     return {d["sku"]: d for d in docs}
 
 
-async def run_restock(db, rng, logistik: Actor, suppliers: dict, when: datetime, initial: bool) -> int:
-    """Buat restock per supplier. Awal: semua produk. Susulan: hanya produk yang menipis."""
+class SalesMemory:
+    """Penjualan 7 hari terakhir per SKU, dipakai 'logistik simulasi' untuk menentukan jumlah restock."""
+
+    def __init__(self) -> None:
+        self.events: list[tuple[datetime, str, int]] = []
+
+    def add(self, when: datetime, sku: str, qty: int) -> None:
+        self.events.append((when, sku, qty))
+
+    def last_week(self, now: datetime) -> dict[str, int]:
+        since = now - timedelta(days=7)
+        self.events = [e for e in self.events if e[0] >= since]
+        totals: dict[str, int] = {}
+        for _when, sku, qty in self.events:
+            totals[sku] = totals.get(sku, 0) + qty
+        return totals
+
+
+def round_up(value: float, step: int) -> int:
+    return max(step, int(-(-value // step) * step))
+
+
+async def run_restock(
+    db,
+    rng,
+    logistik: Actor,
+    suppliers: dict,
+    when: datetime,
+    initial: bool,
+    memory: SalesMemory,
+    per_day: float,
+) -> int:
+    """Restock per supplier.
+
+    Awal: stok ±2 minggu sesuai popularitas. Mingguan: produk yang stoknya tidak cukup untuk
+    seminggu dipesan 0,85–1,35 × penjualan minggu lalu — kadang kurang, sehingga produk laris
+    sesekali habis sebelum Senin berikutnya (dibutuhkan untuk menguji forecasting).
+    """
     stock_by_sku = await current_stock(db, [row[0] for row in PRODUCTS])
+    last_week = memory.last_week(when)
+    total_weight = sum(p[0] for p in PROFILE.values())
     created = 0
 
     for supplier_code, supplier in suppliers.items():
@@ -376,16 +503,21 @@ async def run_restock(db, rng, logistik: Actor, suppliers: dict, when: datetime,
             if SUPPLIER_BY_CATEGORY[CATEGORY_BY_SKU[sku]] != supplier_code:
                 continue
             product = stock_by_sku[sku]
+            stock = int(product["stock"])
             if initial:
-                quantity = rng.randint(80, 150)
-            elif int(product["stock"]) <= int(product["minimumStock"]) * 3:
-                quantity = rng.randint(40, 100)
+                expected_week = PROFILE[sku][0] / total_weight * per_day * 7 * 1.6 * (PROFILE[sku][3] + 1) / 2
+                quantity = round_up(expected_week * rng.uniform(1.6, 2.2) + int(product["minimumStock"]), 10)
             else:
-                continue
+                sold = last_week.get(sku, 0)
+                if stock >= max(sold, int(product["minimumStock"]) * 2):
+                    continue
+                quantity = round_up(
+                    max(sold * rng.uniform(0.85, 1.35) - stock, int(product["minimumStock"])), 10
+                )
             items.append(
                 {
                     "productId": str(product["_id"]),
-                    "quantity": quantity,
+                    "quantity": min(quantity, 10000),
                     "purchasePrice": random_purchase_price(rng, sku),
                 }
             )
@@ -403,20 +535,25 @@ async def run_restock(db, rng, logistik: Actor, suppliers: dict, when: datetime,
     return created
 
 
-async def run_sale(db, rng, cashiers: list[Actor], members: list[dict], when: datetime) -> bool:
-    """Buat satu penjualan acak. Mengembalikan False bila tidak ada produk berstok."""
-    stock_by_sku = await current_stock(db, [row[0] for row in PRODUCTS])
-    available = [p for p in stock_by_sku.values() if p.get("isActive") and int(p["stock"]) > 0]
-    if not available:
-        return False
+async def run_sale(
+    db, rng, cashiers: list[Actor], members: list[dict], when: datetime, day_index: int, memory: SalesMemory
+) -> bool:
+    """Satu penjualan berpola. False bila semua isi keranjang sedang habis."""
+    weekend = when.astimezone(WIB).weekday() >= 5
+    basket = build_basket(rng, anchor_weights(day_index, weekend))
+    stock_by_sku = await current_stock(db, list(basket))
 
-    chosen = rng.sample(available, k=min(len(available), rng.randint(1, 4)))
     items = []
     total = 0
-    for product in chosen:
-        quantity = rng.randint(1, min(5, int(product["stock"])))
+    for sku, wanted in basket.items():
+        product = stock_by_sku.get(sku)
+        if not product or not product.get("isActive") or int(product["stock"]) <= 0:
+            continue  # stok habis: pembeli hanya membeli yang ada
+        quantity = min(wanted, int(product["stock"]))
         items.append({"productId": str(product["_id"]), "quantity": quantity})
         total += quantity * int(product["sellingPrice"])
+    if not items:
+        return False
 
     payment: dict = {"method": "CASH", "amountPaid": cash_given(rng, total)}
     if rng.random() < 0.3:
@@ -430,14 +567,12 @@ async def run_sale(db, rng, cashiers: list[Actor], members: list[dict], when: da
         customer_name = rng.choice(CUSTOMER_NAMES)
 
     body = SaleCreate.model_validate(
-        {
-            "items": items,
-            "customerName": customer_name,
-            "memberId": member_id,
-            "payment": payment,
-        }
+        {"items": items, "customerName": customer_name, "memberId": member_id, "payment": payment}
     )
     await sale_service.checkout(db, rng.choice(cashiers), body, at=when)
+    sku_by_id = {str(p["_id"]): sku for sku, p in stock_by_sku.items()}
+    for item in items:
+        memory.add(when, sku_by_id[item["productId"]], item["quantity"])
     return True
 
 
@@ -460,21 +595,31 @@ async def main(args: argparse.Namespace) -> None:
         cashiers = users["KASIR"]
 
         rng = random.Random(RANDOM_SEED)
-        timeline = build_timeline(rng, args.sales)
+        timeline = build_timeline(rng, args.days, args.per_day)
+        planned = sum(1 for _w, kind in timeline if kind.startswith("sale"))
+        print(f"Mensimulasikan {args.days} hari: ±{planned} penjualan (butuh beberapa menit)...")
 
+        memory = SalesMemory()
         restocks = 0
         sales = 0
+        skipped = 0
         for when, kind in timeline:
             if kind == "restock-initial":
-                restocks += await run_restock(db, rng, logistik, suppliers, when, initial=True)
+                restocks += await run_restock(db, rng, logistik, suppliers, when, True, memory, args.per_day)
             elif kind == "restock-topup":
-                restocks += await run_restock(db, rng, logistik, suppliers, when, initial=False)
-            elif await run_sale(db, rng, cashiers, members, when):
-                sales += 1
+                restocks += await run_restock(db, rng, logistik, suppliers, when, False, memory, args.per_day)
+            else:
+                day_index = int(kind.split(":", 1)[1])
+                if await run_sale(db, rng, cashiers, members, when, day_index, memory):
+                    sales += 1
+                    if sales % 100 == 0:
+                        print(f"  ... {sales} penjualan")
+                else:
+                    skipped += 1
 
         print("Seed selesai.")
         print(f"  Transaksi restock : {restocks}")
-        print(f"  Transaksi penjualan: {sales}")
+        print(f"  Transaksi penjualan: {sales} (dilewati karena semua barang habis: {skipped})")
         print("Akun demo (password sama untuk semua akun buatan seed):")
         print(f"  password: {DEMO_PASSWORD}")
         for role, actors in users.items():
@@ -487,7 +632,12 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Seed data demo Sistem Toko Koperasi")
     parser.add_argument("--reset", action="store_true", help="hapus data toko lama sebelum seed")
     parser.add_argument("--yes", action="store_true", help="lewati pertanyaan konfirmasi reset")
-    parser.add_argument("--sales", type=int, default=60, help="jumlah penjualan acak (bawaan 60)")
+    parser.add_argument(
+        "--days", type=int, default=70, help="panjang riwayat dalam hari (bawaan 70 = 10 minggu)"
+    )
+    parser.add_argument(
+        "--per-day", type=float, default=12, help="rata-rata penjualan per hari kerja (bawaan 12)"
+    )
     return parser.parse_args()
 
 

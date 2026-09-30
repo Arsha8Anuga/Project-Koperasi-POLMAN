@@ -11,7 +11,7 @@ python -m scripts.create_initial_users                 # owner / logistik / admi
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Data demo (kategori, 25 produk, supplier, anggota, restock + ±60 penjualan 6 minggu terakhir):
+Data demo (kategori, 25 produk ber-barcode, supplier, anggota, restock mingguan + ±1.000 penjualan berpola selama 10 minggu; butuh beberapa menit):
 
 ```bash
 python -m scripts.seed --reset                         # ke MONGODB_DB di .env (minta konfirmasi)
