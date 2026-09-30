@@ -18,11 +18,16 @@ rumus bisa ditunjukkan saat presentasi. Dengan ±1.000 transaksi & 25 produk, sa
 ```bash
 cd ai-engine
 pip install -r requirements-dev.txt
-export MONGODB_URI="mongodb://..." MONGODB_DB=koperasi_dev   # SAMA dengan backend
 python -m engine --once     # hitung sekali sekarang, lalu keluar
 python -m engine            # worker: cek antrean tiap 10 detik, hitung ulang tiap 15 menit
 pytest && ruff check .
 ```
+
+Di laptop, `MONGODB_URI` dan `MONGODB_DB` otomatis dibaca dari `ai-engine/.env` kalau ada, kalau tidak dari
+`backend/.env` — jadi database engine pasti sama dengan backend tanpa perlu set apa pun. Hanya variabel
+`MONGODB_*` dan `AI_*` yang diambil. Environment variable yang sudah di-set selalu menang (itulah yang dipakai di
+Docker; file `.env` tidak ikut masuk image). Kalau pernah salah set di terminal, hapus dulu:
+`Remove-Item Env:MONGODB_URI` (PowerShell) atau `unset MONGODB_URI` (bash).
 
 | Env | Bawaan | Arti |
 |---|---|---|

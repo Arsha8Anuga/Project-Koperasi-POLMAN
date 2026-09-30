@@ -6,10 +6,11 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 
 from pymongo import MongoClient
 
-from engine.config import Settings
+from engine.config import Settings, load_env_files, uri_problem
 from engine.worker import claim, create_job, heartbeat, loop, process
 
 
@@ -19,7 +20,19 @@ def main() -> None:
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    had_uri = "MONGODB_URI" in os.environ
+    env_file = load_env_files()
     settings = Settings()
+    source = "environment variable" if had_uri else (str(env_file) if env_file else "nilai bawaan (localhost)")
+    problem = uri_problem(settings.mongodb_uri)
+    if problem:
+        hint = (
+            " Hapus variabelnya (PowerShell: Remove-Item Env:MONGODB_URI) supaya backend/.env yang dipakai."
+            if had_uri
+            else ""
+        )
+        raise SystemExit(f"Konfigurasi salah: {problem}. Sumber: {source}.{hint}")
+    logging.getLogger("engine").info("Konfigurasi dari %s, database %s", source, settings.mongodb_db)
     client = MongoClient(settings.mongodb_uri, tz_aware=True, serverSelectionTimeoutMS=10000)
     db = client[settings.mongodb_db]
     try:

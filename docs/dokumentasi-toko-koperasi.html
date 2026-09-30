@@ -1,0 +1,3261 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dokumentasi Sistem Toko Koperasi</title>
+<meta name="description" content="Dokumentasi proyek Sistem Toko Koperasi: arsitektur, hak akses, fitur, model data, API, AI engine, pemindaian barcode, instalasi, deployment, keamanan, dan pengujian.">
+<style>
+:root{
+  --bg:#f4f6f9;--surface:#ffffff;--surface-2:#eef1f6;--fg:#172033;--muted:#5b6679;--border:#d9dee7;
+  --primary:#1e3a6e;--primary-soft:#e3e9f4;--accent:#2f5aa8;--code-bg:#eef1f6;--code-fg:#1d2b45;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0d1320;--surface:#131b2c;--surface-2:#18233a;--fg:#e4e9f2;--muted:#9aa6bc;--border:#27324a;
+    --primary:#8fb0ea;--primary-soft:#1b2a47;--accent:#9dbcf2;--code-bg:#0f1727;--code-fg:#d5e0f5;
+    --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0d1320;--surface:#131b2c;--surface-2:#18233a;--fg:#e4e9f2;--muted:#9aa6bc;--border:#27324a;
+  --primary:#8fb0ea;--primary-soft:#1b2a47;--accent:#9dbcf2;--code-bg:#0f1727;--code-fg:#d5e0f5;
+  --shadow:none;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:16px}
+body{margin:0;background:var(--bg);color:var(--fg);
+  font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif}
+a{color:var(--accent);text-underline-offset:2px}
+.layout{display:grid;grid-template-columns:300px minmax(0,1fr);min-height:100vh}
+.sidebar{position:sticky;top:0;height:100vh;overflow-y:auto;background:var(--surface);
+  border-right:1px solid var(--border);padding:20px 16px 32px}
+.brand{display:flex;align-items:center;gap:10px;margin:0 4px 16px}
+.brand-mark{width:34px;height:34px;border-radius:9px;background:var(--primary);color:var(--surface);
+  display:grid;place-items:center;font-weight:700;font-size:15px;flex:none}
+.brand-text{font-weight:700;line-height:1.2;font-size:15px}
+.brand-text small{display:block;font-weight:500;color:var(--muted);font-size:12px}
+.toolbar{display:flex;gap:8px;margin:0 4px 16px}
+.toolbar button{flex:1;border:1px solid var(--border);background:var(--surface-2);color:var(--fg);
+  border-radius:8px;padding:7px 10px;font:inherit;font-size:13px;cursor:pointer}
+.toolbar button:hover{border-color:var(--accent)}
+.toc ul{list-style:none;margin:0;padding:0}
+.toc .toc-chapter{margin:2px 0}
+.toc .toc-chapter>a{display:block;font-weight:600;font-size:14px;padding:6px 8px;border-radius:7px;color:var(--fg);text-decoration:none}
+.toc .toc-chapter ul{margin:0 0 6px 10px;border-left:1px solid var(--border)}
+.toc .toc-chapter ul a{display:block;font-size:13px;padding:3px 10px;color:var(--muted);text-decoration:none;border-radius:0 6px 6px 0}
+.toc a:hover{background:var(--surface-2);color:var(--fg)}
+.toc a.active{background:var(--primary-soft);color:var(--primary)}
+main{padding:40px 56px 80px;max-width:1040px;width:100%}
+.hero{background:var(--primary);color:#fff;border-radius:14px;padding:28px 32px;margin-bottom:36px;box-shadow:var(--shadow)}
+:root[data-theme="dark"] .hero{background:#1b2a47}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .hero{background:#1b2a47}}
+.hero h1{margin:0 0 6px;font-size:28px;line-height:1.25;border:0;padding:0;color:#fff}
+.hero p{margin:0;opacity:.85}
+.content h1{font-size:26px;line-height:1.3;margin:64px 0 18px;padding-bottom:10px;border-bottom:2px solid var(--border);color:var(--primary)}
+.content h2{font-size:20px;margin:40px 0 12px}
+.content h3{font-size:17px;margin:28px 0 10px}
+.content p,.content li{max-width:78ch}
+.content li{margin:4px 0}
+.table-wrap{overflow-x:auto;margin:16px 0 22px;border:1px solid var(--border);border-radius:10px;background:var(--surface);box-shadow:var(--shadow)}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--border)}
+th{background:var(--surface-2);font-weight:600;white-space:nowrap}
+td code{overflow-wrap:anywhere}
+tr:last-child td{border-bottom:0}
+code{font:13.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+  background:var(--code-bg);color:var(--code-fg);padding:1px 5px;border-radius:5px}
+pre{background:var(--code-bg);border:1px solid var(--border);border-radius:10px;padding:14px 16px;overflow-x:auto;margin:14px 0 20px}
+pre code{padding:0;background:none;font-size:13px;line-height:1.35;color:var(--code-fg)}
+.doc-anchor{position:relative;top:-8px}
+.footer{margin-top:72px;padding-top:16px;border-top:1px solid var(--border);color:var(--muted);font-size:13px}
+.menu-toggle{display:none}
+@media (max-width: 960px){
+  .layout{display:block}
+  .sidebar{position:fixed;inset:0 auto 0 0;width:min(86vw,320px);z-index:20;transform:translateX(-100%);
+    transition:transform .2s ease,visibility .2s;visibility:hidden}
+  body.nav-open .sidebar{transform:none;visibility:visible;box-shadow:0 0 40px rgba(0,0,0,.25)}
+  table{font-size:13.5px}
+  th,td{padding:8px 10px}
+  .menu-toggle{display:flex;position:sticky;top:0;z-index:10;align-items:center;gap:10px;
+    background:var(--surface);border-bottom:1px solid var(--border);padding:10px 16px}
+  .menu-toggle button{border:1px solid var(--border);background:var(--surface-2);color:var(--fg);
+    border-radius:8px;padding:6px 12px;font:inherit;font-size:14px;cursor:pointer}
+  .menu-toggle span{font-weight:600;font-size:15px}
+  main{padding:20px 16px 60px}
+  .hero{padding:20px}
+  .hero h1{font-size:22px}
+  .content h1{font-size:22px;margin-top:48px}
+  html{scroll-padding-top:60px}
+}
+@media print{
+  .sidebar,.menu-toggle,.toolbar{display:none}
+  .layout{display:block}
+  main{padding:0;max-width:none}
+  body{background:#fff;color:#000}
+  .content h1{page-break-before:always}
+  .table-wrap{box-shadow:none}
+}
+</style>
+</head>
+<body>
+<div class="menu-toggle"><button id="menu-btn" type="button" aria-label="Buka daftar isi">Daftar isi</button><span>Toko Koperasi</span></div>
+<div class="layout">
+  <aside class="sidebar" aria-label="Daftar isi">
+    <div class="brand"><div class="brand-mark">TK</div><div class="brand-text">Sistem Toko Koperasi<small>Dokumentasi proyek</small></div></div>
+    <div class="toolbar"><button id="theme-btn" type="button">Terang / gelap</button><button id="print-btn" type="button">Cetak / PDF</button></div>
+    <nav class="toc"><ul><li class="toc-chapter"><a href="#pendahuluan">Pendahuluan</a><ul><li><a href="#daftar-isi">Daftar isi</a></li><li><a href="#konvensi-penulisan">Konvensi penulisan</a></li></ul></li><li class="toc-chapter"><a href="#1-gambaran-umum">1. Gambaran Umum</a><ul><li><a href="#11-latar-belakang">1.1 Latar belakang</a></li><li><a href="#12-tujuan">1.2 Tujuan</a></li><li><a href="#13-ruang-lingkup">1.3 Ruang lingkup</a></li><li><a href="#14-istilah">1.4 Istilah</a></li></ul></li><li class="toc-chapter"><a href="#2-arsitektur-sistem">2. Arsitektur Sistem</a><ul><li><a href="#21-komponen-dan-hubungan-antarkomponen">2.1 Komponen dan hubungan antarkomponen</a></li><li><a href="#22-prinsip-rancangan">2.2 Prinsip rancangan</a></li><li><a href="#23-arsitektur-backend">2.3 Arsitektur backend</a></li><li><a href="#24-arsitektur-frontend">2.4 Arsitektur frontend</a></li><li><a href="#25-alur-data-utama">2.5 Alur data utama</a></li><li><a href="#26-struktur-repositori">2.6 Struktur repositori</a></li></ul></li><li class="toc-chapter"><a href="#3-peran-dan-hak-akses">3. Peran dan Hak Akses</a><ul><li><a href="#31-daftar-peran">3.1 Daftar peran</a></li><li><a href="#32-matriks-hak-akses">3.2 Matriks hak akses</a></li><li><a href="#33-alasan-pembagian-hak-akses">3.3 Alasan pembagian hak akses</a></li><li><a href="#34-akun-awal">3.4 Akun awal</a></li></ul></li><li class="toc-chapter"><a href="#4-fitur-aplikasi">4. Fitur Aplikasi</a><ul><li><a href="#41-fitur-umum-kedua-aplikasi">4.1 Fitur umum kedua aplikasi</a></li><li><a href="#42-aplikasi-kasir">4.2 Aplikasi kasir</a></li><li><a href="#43-panel-admin-owner">4.3 Panel admin: OWNER</a></li><li><a href="#44-panel-admin-logistik">4.4 Panel admin: LOGISTIK</a></li><li><a href="#45-panel-admin-admin">4.5 Panel admin: ADMIN</a></li></ul></li><li class="toc-chapter"><a href="#5-model-data">5. Model Data</a><ul><li><a href="#51-ketentuan-umum">5.1 Ketentuan umum</a></li><li><a href="#52-daftar-koleksi">5.2 Daftar koleksi</a></li><li><a href="#53-rincian-koleksi">5.3 Rincian koleksi</a></li><li><a href="#54-indeks">5.4 Indeks</a></li><li><a href="#55-aturan-bisnis-penting">5.5 Aturan bisnis penting</a></li></ul></li><li class="toc-chapter"><a href="#6-referensi-api">6. Referensi API</a><ul><li><a href="#61-ketentuan-umum">6.1 Ketentuan umum</a></li><li><a href="#62-autentikasi">6.2 Autentikasi</a></li><li><a href="#63-pengguna-dan-anggota">6.3 Pengguna dan anggota</a></li><li><a href="#64-katalog">6.4 Katalog</a></li><li><a href="#65-transaksi-dan-stok">6.5 Transaksi dan stok</a></li><li><a href="#66-laporan-dan-dashboard">6.6 Laporan dan dashboard</a></li><li><a href="#67-hasil-analisis-ai">6.7 Hasil analisis AI</a></li></ul></li><li class="toc-chapter"><a href="#7-ai-engine">7. AI Engine</a><ul><li><a href="#71-gambaran-umum">7.1 Gambaran umum</a></li><li><a href="#72-pelatihan-model">7.2 Pelatihan model</a></li><li><a href="#73-association-rules-apriori">7.3 Association rules (Apriori)</a></li><li><a href="#74-forecasting-penjualan">7.4 Forecasting penjualan</a></li><li><a href="#75-dari-prediksi-ke-saran-restock">7.5 Dari prediksi ke saran restock</a></li><li><a href="#76-siklus-kerja-worker">7.6 Siklus kerja worker</a></li><li><a href="#77-kontrak-data">7.7 Kontrak data</a></li><li><a href="#78-konfigurasi">7.8 Konfigurasi</a></li><li><a href="#79-validasi-dan-keterbatasan">7.9 Validasi dan keterbatasan</a></li></ul></li><li class="toc-chapter"><a href="#8-pemindaian-barcode">8. Pemindaian Barcode</a><ul><li><a href="#81-cara-input-yang-didukung">8.1 Cara input yang didukung</a></li><li><a href="#82-format-barcode">8.2 Format barcode</a></li><li><a href="#83-pencocokan-kode">8.3 Pencocokan kode</a></li><li><a href="#84-perilaku-per-halaman">8.4 Perilaku per halaman</a></li><li><a href="#85-detail-teknis">8.5 Detail teknis</a></li><li><a href="#86-data-demo">8.6 Data demo</a></li></ul></li><li class="toc-chapter"><a href="#9-instalasi-dan-pengembangan">9. Instalasi dan Pengembangan</a><ul><li><a href="#91-prasyarat">9.1 Prasyarat</a></li><li><a href="#92-backend">9.2 Backend</a></li><li><a href="#93-data-demo">9.3 Data demo</a></li><li><a href="#94-ai-engine">9.4 AI engine</a></li><li><a href="#95-frontend">9.5 Frontend</a></li><li><a href="#96-konvensi-kode">9.6 Konvensi kode</a></li><li><a href="#97-pemeriksaan-sebelum-menggabungkan-perubahan">9.7 Pemeriksaan sebelum menggabungkan perubahan</a></li></ul></li><li class="toc-chapter"><a href="#10-deployment">10. Deployment</a><ul><li><a href="#101-topologi">10.1 Topologi</a></li><li><a href="#102-variabel-lingkungan-stack">10.2 Variabel lingkungan stack</a></li><li><a href="#103-persiapan-sebelum-deployment">10.3 Persiapan sebelum deployment</a></li><li><a href="#104-membuat-stack-di-portainer">10.4 Membuat stack di Portainer</a></li><li><a href="#105-domain-dan-https">10.5 Domain dan HTTPS</a></li><li><a href="#106-pengisian-data-awal">10.6 Pengisian data awal</a></li><li><a href="#107-pembaruan">10.7 Pembaruan</a></li><li><a href="#108-penanganan-masalah">10.8 Penanganan masalah</a></li></ul></li><li class="toc-chapter"><a href="#11-keamanan-dan-pengujian">11. Keamanan dan Pengujian</a><ul><li><a href="#111-autentikasi">11.1 Autentikasi</a></li><li><a href="#112-otorisasi-dan-perlindungan-data">11.2 Otorisasi dan perlindungan data</a></li><li><a href="#113-audit-trail">11.3 Audit trail</a></li><li><a href="#114-keamanan-deployment">11.4 Keamanan deployment</a></li><li><a href="#115-keterbatasan-keamanan-yang-diketahui">11.5 Keterbatasan keamanan yang diketahui</a></li><li><a href="#116-pengujian-otomatis">11.6 Pengujian otomatis</a></li></ul></li></ul></nav>
+  </aside>
+  <main>
+    <header class="hero"><h1>Dokumentasi Sistem Toko Koperasi</h1><p>Aplikasi kasir, panel admin, backend REST API, dan AI engine untuk pengelolaan toko koperasi.</p></header>
+    <article class="content">
+<div id="doc-pendahuluan" class="doc-anchor"></div>
+
+<h1 id="pendahuluan">Pendahuluan</h1>
+<p>Dokumentasi ini menjelaskan Sistem Toko Koperasi secara menyeluruh: tujuan, arsitektur, hak akses, fitur, model data, antarmuka pemrograman (API), mesin analisis (AI engine), pemindaian barcode, cara menjalankan untuk pengembangan, cara deployment, serta aspek keamanan dan pengujian.</p>
+<p>Dokumentasi tersedia dalam dua bentuk dengan isi yang sama:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Bentuk</th>
+<th>Lokasi</th>
+<th>Kegunaan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Markdown per bab</td>
+<td>folder <code>docs/</code></td>
+<td>Dibaca langsung di repositori, mudah diperbarui per bagian</td>
+</tr>
+<tr class="even">
+<td>HTML tunggal</td>
+<td><code>docs/dokumentasi-toko-koperasi.html</code></td>
+<td>Dibuka di peramban tanpa server, dilengkapi daftar isi dan mode gelap</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="daftar-isi">Daftar isi</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>No.</th>
+<th>Bab</th>
+<th>Isi pokok</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>1</td>
+<td><a href="#doc-01-gambaran-umum">Gambaran Umum</a></td>
+<td>Latar belakang, tujuan, ruang lingkup, istilah</td>
+</tr>
+<tr class="even">
+<td>2</td>
+<td><a href="#doc-02-arsitektur">Arsitektur Sistem</a></td>
+<td>Komponen, teknologi, alur data, struktur repositori</td>
+</tr>
+<tr class="odd">
+<td>3</td>
+<td><a href="#doc-03-peran-dan-hak-akses">Peran dan Hak Akses</a></td>
+<td>Lima peran, aplikasi yang dapat dibuka, matriks hak akses</td>
+</tr>
+<tr class="even">
+<td>4</td>
+<td><a href="#doc-04-fitur-aplikasi">Fitur Aplikasi</a></td>
+<td>Fitur aplikasi kasir dan panel admin per peran</td>
+</tr>
+<tr class="odd">
+<td>5</td>
+<td><a href="#doc-05-model-data">Model Data</a></td>
+<td>Koleksi MongoDB, field penting, indeks, aturan bisnis</td>
+</tr>
+<tr class="even">
+<td>6</td>
+<td><a href="#doc-06-referensi-api">Referensi API</a></td>
+<td>Format respons, autentikasi, daftar endpoint, kode galat</td>
+</tr>
+<tr class="odd">
+<td>7</td>
+<td><a href="#doc-07-ai-engine">AI Engine</a></td>
+<td>Association rules, forecasting, saran restock, kontrak data</td>
+</tr>
+<tr class="even">
+<td>8</td>
+<td><a href="#doc-08-pemindaian-barcode">Pemindaian Barcode</a></td>
+<td>Scanner USB, input manual, kamera, format yang didukung</td>
+</tr>
+<tr class="odd">
+<td>9</td>
+<td><a href="#doc-09-instalasi-dan-pengembangan">Instalasi dan Pengembangan</a></td>
+<td>Menjalankan tiap komponen secara lokal, data demo, konvensi kode</td>
+</tr>
+<tr class="even">
+<td>10</td>
+<td><a href="#doc-10-deployment">Deployment</a></td>
+<td>Docker Compose, Portainer, domain dan HTTPS, variabel lingkungan</td>
+</tr>
+<tr class="odd">
+<td>11</td>
+<td><a href="#doc-11-keamanan-dan-pengujian">Keamanan dan Pengujian</a></td>
+<td>Mekanisme keamanan, audit trail, pengujian otomatis</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="konvensi-penulisan">Konvensi penulisan</h2>
+<p>Nama field, endpoint, perintah, dan nama berkas ditulis dengan huruf monospace, misalnya <code>sellingPrice</code> atau <code>GET /api/v1/products</code>. Nilai yang harus diganti sesuai lingkungan masing-masing ditulis di antara tanda kurung sudut, misalnya <code>&lt;domain&gt;</code>. Seluruh waktu yang tersimpan di basis data menggunakan UTC, sedangkan tanggal yang ditampilkan dan dipakai sebagai filter menggunakan zona waktu WIB (Asia/Jakarta).</p>
+<p>HTML tunggal dibangun ulang dari berkas Markdown dengan perintah <code>python docs/build_html.py</code> (membutuhkan Pandoc), sehingga perubahan cukup dilakukan pada berkas Markdown.</p>
+<div id="doc-01-gambaran-umum" class="doc-anchor"></div>
+
+<h1 id="1-gambaran-umum">1. Gambaran Umum</h1>
+<h2 id="11-latar-belakang">1.1 Latar belakang</h2>
+<p>Toko koperasi menjual kebutuhan sehari-hari kepada anggota dan masyarakat umum: alat tulis, makanan ringan, minuman, perlengkapan kebersihan, dan kebutuhan rumah tangga. Pencatatan manual menimbulkan beberapa masalah yang berulang, yaitu stok yang tidak sesuai dengan kondisi rak, harga pokok penjualan (HPP) yang sulit dihitung ketika harga beli berubah-ubah, laporan keuangan yang baru tersedia di akhir periode, serta keputusan restock yang bergantung pada perkiraan kasar.</p>
+<p>Sistem Toko Koperasi dibangun untuk mencatat seluruh transaksi secara digital dan konsisten, menyajikan laporan secara langsung, dan memberikan analisis yang membantu pengambilan keputusan, antara lain produk yang sering dibeli bersamaan dan perkiraan kapan stok sebuah produk akan habis.</p>
+<h2 id="12-tujuan">1.2 Tujuan</h2>
+<ol type="1">
+<li>Mempercepat proses penjualan di kasir melalui pencarian produk, pemindaian barcode, dan pembayaran tunai maupun QRIS.</li>
+<li>Menjaga stok selalu akurat: setiap penjualan dan restock mengubah stok secara atomik dan tercatat sebagai pergerakan stok.</li>
+<li>Menghitung HPP secara otomatis dengan metode rata-rata bergerak (<em>moving average</em>) setiap kali barang masuk.</li>
+<li>Menyediakan laporan arus kas, laba kotor, produk terlaris, dan kondisi stok bagi pemilik toko.</li>
+<li>Membatasi akses sesuai peran sehingga setiap pengguna hanya dapat melihat dan mengubah data yang menjadi tanggung jawab peran tersebut.</li>
+<li>Mencatat setiap aksi penting ke dalam audit trail.</li>
+<li>Memberikan analisis berbasis data melalui AI engine: rekomendasi produk pendamping di kasir, prediksi penjualan, dan saran jumlah restock.</li>
+</ol>
+<h2 id="13-ruang-lingkup">1.3 Ruang lingkup</h2>
+<p>Sistem terdiri atas empat komponen yang berjalan terpisah:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Komponen</th>
+<th>Pengguna</th>
+<th>Fungsi utama</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Aplikasi kasir (<code>frontend-kasir</code>)</td>
+<td>KASIR</td>
+<td>Penjualan (POS), pembayaran, struk, riwayat transaksi kasir, pendaftaran anggota</td>
+</tr>
+<tr class="even">
+<td>Panel admin (<code>frontend-admin</code>)</td>
+<td>OWNER, LOGISTIK, ADMIN</td>
+<td>Laporan, katalog produk, supplier, restock, stok, pengguna, anggota, audit trail, pemantauan AI engine</td>
+</tr>
+<tr class="odd">
+<td>Backend (<code>backend</code>)</td>
+<td>Kedua aplikasi</td>
+<td>REST API, aturan bisnis, autentikasi, otorisasi, transaksi basis data</td>
+</tr>
+<tr class="even">
+<td>AI engine (<code>ai-engine</code>)</td>
+<td>Tidak diakses langsung</td>
+<td>Perhitungan association rules dan forecasting secara berkala</td>
+</tr>
+</tbody>
+</table></div>
+<p>Hal-hal berikut berada di luar ruang lingkup versi ini:</p>
+<ul>
+<li>Integrasi payment gateway. Pembayaran QRIS masih berupa simulasi: kode QR berisi total belanja dan kasir mengonfirmasi pembayaran secara manual.</li>
+<li>Pembatalan atau retur transaksi. Status <code>CANCELLED</code> dan <code>EXPIRED</code> sudah dicadangkan pada model data, tetapi belum digunakan.</li>
+<li>Penyesuaian stok manual (<em>stock opname</em>). Tipe pergerakan <code>ADJUSTMENT</code> sudah dicadangkan.</li>
+<li>Akun untuk anggota koperasi. Peran <code>MEMBER</code> sudah dicadangkan, tetapi anggota belum dapat login.</li>
+<li>Multi-cabang. Satu instalasi melayani satu toko.</li>
+</ul>
+<h2 id="14-istilah">1.4 Istilah</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Istilah</th>
+<th>Pengertian</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>POS</td>
+<td><em>Point of sale</em>, halaman kasir untuk menyusun keranjang dan memproses pembayaran</td>
+</tr>
+<tr class="even">
+<td>SKU</td>
+<td><em>Stock keeping unit</em>, kode internal unik untuk setiap produk, misalnya <code>MKN-004</code></td>
+</tr>
+<tr class="odd">
+<td>Barcode</td>
+<td>Kode batang pada kemasan produk, umumnya EAN-13; bersifat opsional tetapi unik bila diisi</td>
+</tr>
+<tr class="even">
+<td>HPP</td>
+<td>Harga pokok penjualan; pada sistem ini disimpan sebagai <code>costPrice</code> dan dihitung dengan rata-rata bergerak</td>
+</tr>
+<tr class="odd">
+<td>Restock</td>
+<td>Pencatatan barang masuk dari supplier; menambah stok dan memperbarui HPP</td>
+</tr>
+<tr class="even">
+<td>Stok minimum</td>
+<td>Batas bawah stok; produk dengan stok di bawah atau sama dengan batas ini berstatus menipis (<code>LOW</code>)</td>
+</tr>
+<tr class="odd">
+<td>Anggota</td>
+<td>Anggota koperasi yang terdaftar dengan nomor anggota <code>KOP-NNN</code>; dapat dikaitkan ke transaksi penjualan</td>
+</tr>
+<tr class="even">
+<td>Audit trail</td>
+<td>Catatan aksi penting (login, perubahan data, penjualan, restock, perhitungan ulang AI)</td>
+</tr>
+<tr class="odd">
+<td>Association rules</td>
+<td>Aturan "produk A cenderung dibeli bersama produk C" beserta ukuran kekuatannya</td>
+</tr>
+<tr class="even">
+<td>Forecasting</td>
+<td>Prediksi jumlah penjualan harian per produk untuk beberapa hari ke depan</td>
+</tr>
+<tr class="odd">
+<td>Lead time</td>
+<td>Waktu tunggu sejak barang dipesan hingga tiba dari supplier</td>
+</tr>
+<tr class="even">
+<td>WIB</td>
+<td>Waktu Indonesia Barat (UTC+7), zona waktu acuan tanggal pada laporan</td>
+</tr>
+</tbody>
+</table></div>
+<div id="doc-02-arsitektur" class="doc-anchor"></div>
+
+<h1 id="2-arsitektur-sistem">2. Arsitektur Sistem</h1>
+<h2 id="21-komponen-dan-hubungan-antarkomponen">2.1 Komponen dan hubungan antarkomponen</h2>
+<p>Sistem menggunakan arsitektur tiga lapis (antarmuka, layanan, data) dengan satu komponen tambahan berupa worker analisis. Kedua aplikasi web tidak pernah mengakses basis data secara langsung; seluruh permintaan data melewati REST API pada backend. AI engine juga tidak dipanggil oleh backend: kedua komponen hanya berbagi basis data MongoDB yang sama.</p>
+<pre class="text"><code>   Peramban (kasir)                 Peramban (owner / logistik / admin)
+         │ HTTPS                                   │ HTTPS
+         ▼                                         ▼
+ ┌────────────────────┐                  ┌────────────────────┐
+ │ frontend-kasir     │                  │ frontend-admin     │
+ │ Vue 3 + nginx      │                  │ Vue 3 + nginx      │
+ └─────────┬──────────┘                  └─────────┬──────────┘
+           │  /api/v1/*  (diteruskan nginx, jaringan internal)
+           └──────────────────┬────────────────────┘
+                              ▼
+                   ┌─────────────────────┐
+                   │ backend             │
+                   │ FastAPI (uvicorn)   │
+                   └──────────┬──────────┘
+                              │ baca/tulis data toko,
+                              │ baca hasil analisis, buat job
+                              ▼
+                   ┌─────────────────────┐       baca transaksi,
+                   │ MongoDB             │◄───── tulis hasil analisis ──┐
+                   │ (replica set)       │                              │
+                   └─────────────────────┘                   ┌──────────┴────────┐
+                                                             │ ai-engine         │
+                                                             │ worker Python     │
+                                                             └───────────────────┘</code></pre>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Komponen</th>
+<th>Teknologi</th>
+<th>Peran</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>frontend-kasir</code></td>
+<td>Vue 3, TypeScript, Vite, Pinia, Tailwind CSS v4, shadcn-vue, ZXing</td>
+<td>Aplikasi POS untuk peran KASIR</td>
+</tr>
+<tr class="even">
+<td><code>frontend-admin</code></td>
+<td>Vue 3, TypeScript, Vite, Pinia, Tailwind CSS v4, shadcn-vue, Chart.js, ZXing</td>
+<td>Panel pengelolaan untuk OWNER, LOGISTIK, dan ADMIN</td>
+</tr>
+<tr class="odd">
+<td><code>backend</code></td>
+<td>Python 3.11, FastAPI, Pydantic v2, PyMongo Async, PyJWT, bcrypt</td>
+<td>REST API, aturan bisnis, autentikasi dan otorisasi</td>
+</tr>
+<tr class="even">
+<td><code>ai-engine</code></td>
+<td>Python 3.11, NumPy, PyMongo</td>
+<td>Worker association rules dan forecasting</td>
+</tr>
+<tr class="odd">
+<td>Basis data</td>
+<td>MongoDB (replica set)</td>
+<td>Penyimpanan seluruh data; replica set diperlukan karena penjualan dan restock memakai <em>multi-document transaction</em></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="22-prinsip-rancangan">2.2 Prinsip rancangan</h2>
+<ol type="1">
+<li><strong>Backend sebagai satu-satunya sumber kebenaran.</strong> Harga jual, HPP, total belanja, dan stok selalu dihitung ulang di backend dari data basis data. Nilai yang dikirim frontend tidak dipercaya.</li>
+<li><strong>Perubahan stok bersifat atomik.</strong> Penjualan dan restock dijalankan di dalam satu transaksi MongoDB. Pengurangan stok memakai pembaruan bersyarat (stok harus mencukupi), sehingga dua kasir yang menjual barang terakhir secara bersamaan tidak dapat menghasilkan stok negatif.</li>
+<li><strong>Snapshot pada transaksi.</strong> Setiap item transaksi menyimpan salinan SKU, nama, satuan, harga, dan HPP pada saat transaksi terjadi. Perubahan harga di kemudian hari tidak mengubah riwayat.</li>
+<li><strong>Otorisasi di backend, bukan di menu.</strong> Menyembunyikan menu pada frontend hanya bertujuan kenyamanan. Setiap endpoint memeriksa peran pengguna dan menolak akses yang tidak sah dengan status 403.</li>
+<li><strong>Analisis terpisah dari operasional.</strong> AI engine berjalan sebagai proses tersendiri. Bila engine berhenti, kasir dan panel admin tetap berfungsi dengan hasil analisis terakhir.</li>
+<li><strong>Waktu tersimpan dalam UTC.</strong> Konversi ke WIB hanya dilakukan saat menentukan batas tanggal dan saat menampilkan data.</li>
+</ol>
+<h2 id="23-arsitektur-backend">2.3 Arsitektur backend</h2>
+<p>Backend disusun berlapis dengan arah ketergantungan satu arah dari atas ke bawah:</p>
+<pre class="text"><code>app/api/v1/*        Router: validasi input, pengecekan peran, pembentukan respons
+      │
+app/services/*      Aturan bisnis: checkout, restock + HPP, laporan, dashboard, insight
+      │
+app/repositories/*  Akses koleksi MongoDB: query, pagination, pembaruan bersyarat
+      │
+app/db/*            Koneksi, pembuatan indeks, pembungkus transaksi</code></pre>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Folder</th>
+<th>Isi</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>app/core</code></td>
+<td>Konfigurasi (<code>config.py</code>), enum peran dan status (<code>enums.py</code>), kelas galat bisnis (<code>errors.py</code>), hash password dan JWT (<code>security.py</code>)</td>
+</tr>
+<tr class="even">
+<td><code>app/api/deps</code></td>
+<td>Dependensi FastAPI: koneksi basis data, pengguna yang sedang login, pembatas peran <code>require_roles</code></td>
+</tr>
+<tr class="odd">
+<td><code>app/schemas</code></td>
+<td>Model Pydantic untuk input dan output; seluruh field JSON memakai camelCase</td>
+</tr>
+<tr class="even">
+<td><code>app/middlewares</code></td>
+<td>Penangan galat terpusat dan konteks permintaan (alamat IP klien untuk audit)</td>
+</tr>
+<tr class="odd">
+<td><code>app/utils</code></td>
+<td>Utilitas waktu WIB/UTC, validasi ObjectId, pencarian teks aman, pagination</td>
+</tr>
+<tr class="even">
+<td><code>scripts</code></td>
+<td><code>create_initial_users.py</code> (akun awal) dan <code>seed.py</code> (data demo)</td>
+</tr>
+<tr class="odd">
+<td><code>tests</code></td>
+<td>Pengujian unit dan integrasi (pytest)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Seluruh endpoint berada di bawah prefiks <code>/api/v1</code>. Endpoint <code>/health</code> dipakai oleh pemeriksaan kesehatan container.</p>
+<h2 id="24-arsitektur-frontend">2.4 Arsitektur frontend</h2>
+<p>Kedua aplikasi frontend memakai struktur folder yang sama:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Folder</th>
+<th>Isi</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>pages</code></td>
+<td>Halaman yang dipetakan ke rute</td>
+</tr>
+<tr class="even">
+<td><code>layouts</code></td>
+<td>Kerangka halaman (sidebar, header)</td>
+</tr>
+<tr class="odd">
+<td><code>components/ui</code></td>
+<td>Komponen dasar shadcn-vue yang disalin ke repositori (bukan dependensi npm)</td>
+</tr>
+<tr class="even">
+<td><code>components/common</code></td>
+<td>Komponen bersama: pemindai barcode, pengalih tema, menu pengguna, dan sejenisnya</td>
+</tr>
+<tr class="odd">
+<td><code>components/charts</code></td>
+<td>Komponen grafik Chart.js (khusus panel admin)</td>
+</tr>
+<tr class="even">
+<td><code>composables</code></td>
+<td>Logika yang dapat dipakai ulang, misalnya <code>useScannerInput</code>, <code>useTheme</code>, <code>usePagination</code></td>
+</tr>
+<tr class="odd">
+<td><code>services</code></td>
+<td>Klien HTTP (axios) dan fungsi pemanggil API per modul</td>
+</tr>
+<tr class="even">
+<td><code>stores</code></td>
+<td>State global Pinia (sesi login, keranjang belanja)</td>
+</tr>
+<tr class="odd">
+<td><code>types</code></td>
+<td>Definisi tipe TypeScript untuk data API</td>
+</tr>
+<tr class="even">
+<td><code>utils</code></td>
+<td>Format rupiah, tanggal, dan utilitas lain</td>
+</tr>
+</tbody>
+</table></div>
+<p>Tampilan memakai tema abu-abu, navy, dan biru tua dengan mode terang dan gelap. Seluruh warna diambil dari token tema di <code>src/style.css</code>. Sejumlah berkas (token tema, komponen <code>ui</code>, pemindai barcode, dan utilitas format) sengaja dibuat identik di kedua aplikasi agar tampilan dan perilaku seragam.</p>
+<p>Menu samping panel admin dibangun otomatis dari <code>router/routes.ts</code>. Setiap rute memiliki <code>meta.roles</code> yang diperiksa oleh router guard, dan <code>meta.menu</code> yang menentukan kemunculannya di sidebar.</p>
+<h2 id="25-alur-data-utama">2.5 Alur data utama</h2>
+<p><strong>Penjualan.</strong> Kasir menyusun keranjang di POS, memilih metode bayar, dan mengirim <code>POST /sales</code>. Backend memvalidasi item, membaca harga dari basis data, lalu dalam satu transaksi: mengurangi stok setiap produk dengan syarat stok mencukupi, mencatat pergerakan stok, membuat kode <code>TRX-YYYYMMDD-NNNN</code>, menyimpan transaksi, dan mencatat audit. Bila satu langkah gagal, seluruh perubahan dibatalkan.</p>
+<p><strong>Restock.</strong> Petugas logistik memilih supplier dan produk, mengisi jumlah dan harga beli, lalu mengirim <code>POST /restocks</code>. Dalam satu transaksi backend menambah stok, menghitung HPP baru dengan rata-rata bergerak, memperbarui harga beli terakhir, mencatat pergerakan stok, membuat kode <code>RST-YYYYMMDD-NNNN</code>, dan mencatat audit.</p>
+<p><strong>Analisis.</strong> AI engine membaca transaksi penjualan, produk, dan pergerakan stok, lalu menulis hasil ke koleksi <code>insights</code>. Backend membaca koleksi tersebut untuk endpoint <code>/insights/*</code>. Permintaan hitung ulang dari ADMIN disimpan sebagai job di koleksi <code>ai_jobs</code> dan diambil oleh engine pada putaran berikutnya.</p>
+<h2 id="26-struktur-repositori">2.6 Struktur repositori</h2>
+<pre class="text"><code>KOPMAN/
+├── backend/              REST API FastAPI, skrip seed, pengujian
+├── frontend-kasir/       Aplikasi POS (Vue 3)
+├── frontend-admin/       Panel admin (Vue 3)
+├── ai-engine/            Worker analisis (NumPy), CONTRACT.md
+├── docs/                 Dokumentasi proyek (berkas ini)
+├── docker-compose.yml    Definisi stack untuk deployment
+├── stack.env.example     Daftar variabel lingkungan deployment
+└── DEPLOY.md             Panduan ringkas deployment melalui Portainer</code></pre>
+<div id="doc-03-peran-dan-hak-akses" class="doc-anchor"></div>
+
+<h1 id="3-peran-dan-hak-akses">3. Peran dan Hak Akses</h1>
+<h2 id="31-daftar-peran">3.1 Daftar peran</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Peran</th>
+<th>Aplikasi</th>
+<th>Tanggung jawab</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>KASIR</code></td>
+<td>Aplikasi kasir</td>
+<td>Melayani penjualan, mencetak struk, melihat riwayat transaksi yang dibuat oleh akun kasir yang sedang login, mendaftarkan anggota baru</td>
+</tr>
+<tr class="even">
+<td><code>LOGISTIK</code></td>
+<td>Panel admin</td>
+<td>Mengelola katalog produk, kategori, supplier, mencatat restock, memantau stok dan prediksi kebutuhan restock</td>
+</tr>
+<tr class="odd">
+<td><code>OWNER</code></td>
+<td>Panel admin</td>
+<td>Memantau seluruh transaksi, laporan keuangan, stok, serta hasil analisis AI; tidak mengubah data operasional</td>
+</tr>
+<tr class="even">
+<td><code>ADMIN</code></td>
+<td>Panel admin</td>
+<td>Mengelola akun pengguna dan data anggota, memeriksa audit trail, memantau dan menjalankan ulang AI engine</td>
+</tr>
+<tr class="odd">
+<td><code>MEMBER</code></td>
+<td>—</td>
+<td>Dicadangkan untuk pengembangan berikutnya; belum dapat login</td>
+</tr>
+</tbody>
+</table></div>
+<p>Pembatasan aplikasi diterapkan saat login. Permintaan login menyertakan field <code>app</code> bernilai <code>KASIR</code> atau <code>ADMIN</code>. Akun berperan KASIR hanya dapat masuk ke aplikasi kasir, sedangkan OWNER, LOGISTIK, dan ADMIN hanya dapat masuk ke panel admin. Status akun dan kecocokan aplikasi baru diperiksa setelah password terbukti benar, sehingga pihak yang tidak mengetahui password tidak dapat menebak status atau peran sebuah akun.</p>
+<h2 id="32-matriks-hak-akses">3.2 Matriks hak akses</h2>
+<p>Keterangan: <strong>K</strong> = baca/ubah penuh sesuai fungsi, <strong>B</strong> = hanya baca, <strong>—</strong> = tidak ada akses (API mengembalikan 403).</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Modul</th>
+<th>KASIR</th>
+<th>LOGISTIK</th>
+<th>OWNER</th>
+<th>ADMIN</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Login, profil, ganti password</td>
+<td>K</td>
+<td>K</td>
+<td>K</td>
+<td>K</td>
+</tr>
+<tr class="even">
+<td>Produk: lihat dan cari</td>
+<td>B¹</td>
+<td>K</td>
+<td>B</td>
+<td>—</td>
+</tr>
+<tr class="odd">
+<td>Produk: tambah, ubah, aktif/nonaktif</td>
+<td>—</td>
+<td>K</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>Kategori: lihat</td>
+<td>B</td>
+<td>K</td>
+<td>B</td>
+<td>—</td>
+</tr>
+<tr class="odd">
+<td>Kategori: tambah, ubah</td>
+<td>—</td>
+<td>K</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>Supplier</td>
+<td>—</td>
+<td>K</td>
+<td>B</td>
+<td>—</td>
+</tr>
+<tr class="odd">
+<td>Restock: buat dan daftar</td>
+<td>—</td>
+<td>K</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>Restock: detail</td>
+<td>—</td>
+<td>K</td>
+<td>B</td>
+<td>—</td>
+</tr>
+<tr class="odd">
+<td>Stok: laporan dan pergerakan</td>
+<td>—</td>
+<td>B</td>
+<td>B</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>Penjualan: buat</td>
+<td>K</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr class="odd">
+<td>Penjualan: riwayat akun kasir yang login</td>
+<td>B</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>Penjualan: detail</td>
+<td>B²</td>
+<td>—</td>
+<td>B</td>
+<td>—</td>
+</tr>
+<tr class="odd">
+<td>Seluruh transaksi (penjualan dan restock)</td>
+<td>—</td>
+<td>—</td>
+<td>B</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>Laporan keuangan (arus kas, laba kotor, terlaris)</td>
+<td>—</td>
+<td>—</td>
+<td>B</td>
+<td>—</td>
+</tr>
+<tr class="odd">
+<td>Dashboard ringkasan</td>
+<td>—</td>
+<td>B</td>
+<td>B</td>
+<td>B</td>
+</tr>
+<tr class="even">
+<td>Anggota: cari berdasarkan nomor</td>
+<td>B</td>
+<td>—</td>
+<td>—</td>
+<td>B</td>
+</tr>
+<tr class="odd">
+<td>Anggota: daftarkan baru</td>
+<td>K</td>
+<td>—</td>
+<td>—</td>
+<td>K</td>
+</tr>
+<tr class="even">
+<td>Anggota: daftar, ubah, aktif/nonaktif</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>K</td>
+</tr>
+<tr class="odd">
+<td>Pengguna (akun staf)</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>K</td>
+</tr>
+<tr class="even">
+<td>Audit trail</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>B</td>
+</tr>
+<tr class="odd">
+<td>AI: saran produk "sering dibeli bersama"</td>
+<td>B</td>
+<td>B</td>
+<td>B</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>AI: tabel association rules</td>
+<td>—</td>
+<td>—</td>
+<td>B</td>
+<td>B</td>
+</tr>
+<tr class="odd">
+<td>AI: prediksi penjualan dan saran restock</td>
+<td>—</td>
+<td>B</td>
+<td>B</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td>AI: status engine</td>
+<td>—</td>
+<td>—</td>
+<td>B</td>
+<td>B</td>
+</tr>
+<tr class="odd">
+<td>AI: perintah hitung ulang</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>K</td>
+</tr>
+</tbody>
+</table></div>
+<p>¹ KASIR hanya menerima produk aktif, dan field harga pokok (<code>costPrice</code>, <code>lastPurchasePrice</code>) tidak dikirimkan kepada peran ini. ² KASIR hanya dapat membuka struk transaksi yang dibuat oleh akun kasir yang sedang login.</p>
+<h2 id="33-alasan-pembagian-hak-akses">3.3 Alasan pembagian hak akses</h2>
+<p><strong>Pendaftaran anggota oleh kasir.</strong> Calon anggota umumnya mendaftar ketika sedang berbelanja. Kasir diberi hak mendaftarkan anggota baru agar transaksi dapat langsung dikaitkan, tetapi tidak dapat mengubah, menonaktifkan, atau melihat daftar lengkap anggota. Nomor anggota dibuat otomatis oleh sistem sehingga tidak terjadi duplikasi maupun kesalahan penomoran.</p>
+<p><strong>Perintah hitung ulang AI hanya untuk ADMIN.</strong> Perhitungan analisis merupakan tugas operasional sistem. OWNER cukup memakai hasil analisis tanpa perlu mengelola proses perhitungannya. Engine juga menghitung ulang secara otomatis sesuai jadwal, sehingga tombol hitung ulang hanya diperlukan setelah perubahan data dalam jumlah besar.</p>
+<p><strong>OWNER bersifat hanya-baca.</strong> Pemisahan antara pihak yang mencatat transaksi dan pihak yang memeriksa laporan mengurangi risiko manipulasi data.</p>
+<h2 id="34-akun-awal">3.4 Akun awal</h2>
+<p>Skrip <code>scripts/create_initial_users.py</code> dan <code>scripts/seed.py</code> membuat akun berikut dengan password awal <code>koperasi123</code>. Akun yang sudah ada tidak ditimpa.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Username</th>
+<th>Peran</th>
+<th>Dibuat oleh</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>owner</code></td>
+<td>OWNER</td>
+<td>kedua skrip</td>
+</tr>
+<tr class="even">
+<td><code>logistik</code></td>
+<td>LOGISTIK</td>
+<td>kedua skrip</td>
+</tr>
+<tr class="odd">
+<td><code>admin</code></td>
+<td>ADMIN</td>
+<td>kedua skrip</td>
+</tr>
+<tr class="even">
+<td><code>kasir1</code></td>
+<td>KASIR</td>
+<td>kedua skrip</td>
+</tr>
+<tr class="odd">
+<td><code>kasir2</code></td>
+<td>KASIR</td>
+<td><code>seed.py</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>Password awal wajib diganti sebelum sistem dipakai di luar lingkungan pengembangan.</p>
+<div id="doc-04-fitur-aplikasi" class="doc-anchor"></div>
+
+<h1 id="4-fitur-aplikasi">4. Fitur Aplikasi</h1>
+<h2 id="41-fitur-umum-kedua-aplikasi">4.1 Fitur umum kedua aplikasi</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Fitur</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Login</td>
+<td>Username dan password; sesi berlaku 8 jam (dapat diatur melalui <code>JWT_EXPIRE_MINUTES</code>)</td>
+</tr>
+<tr class="even">
+<td>Ganti password</td>
+<td>Tersedia pada menu pengguna; password baru minimal 8 karakter dan harus berbeda dari password lama</td>
+</tr>
+<tr class="odd">
+<td>Mode terang dan gelap</td>
+<td>Dapat dipilih pada header; pilihan tersimpan di peramban</td>
+</tr>
+<tr class="even">
+<td>Keluar otomatis</td>
+<td>Bila token kedaluwarsa atau akun dinonaktifkan, aplikasi kembali ke halaman login</td>
+</tr>
+<tr class="odd">
+<td>Tampilan responsif</td>
+<td>Dapat dipakai di laptop, tablet, dan ponsel</td>
+</tr>
+<tr class="even">
+<td>Notifikasi</td>
+<td>Pesan berhasil dan galat ditampilkan sebagai <em>toast</em></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="42-aplikasi-kasir">4.2 Aplikasi kasir</h2>
+<h3 id="halaman-pos">Halaman POS</h3>
+<ul>
+<li>Katalog produk aktif ditampilkan dalam bentuk kartu beserta harga dan sisa stok. Produk dengan stok habis tidak dapat ditambahkan.</li>
+<li>Pencarian berdasarkan nama, SKU, atau barcode. Tombol <code>/</code> memindahkan fokus ke kolom pencarian.</li>
+<li>Filter kategori berupa tombol di atas katalog.</li>
+<li>Pemindaian barcode melalui scanner USB, ketik lalu Enter, atau kamera (lihat <a href="#doc-08-pemindaian-barcode">Pemindaian Barcode</a>). Produk hasil pindai langsung masuk ke keranjang; pemindaian ulang menambah jumlahnya.</li>
+<li>Keranjang menampilkan item, jumlah, subtotal, dan total. Jumlah dapat diubah dan item dapat dihapus. Jumlah tidak dapat melebihi stok.</li>
+<li>Saran "sering dibeli bersama" muncul di keranjang berdasarkan hasil association rules AI engine. Saran hanya berisi produk aktif yang masih memiliki stok dan belum ada di keranjang. Bila hasil analisis belum tersedia, bagian ini tidak ditampilkan.</li>
+</ul>
+<h3 id="halaman-pembayaran">Halaman pembayaran</h3>
+<ul>
+<li>Metode <strong>Tunai</strong>: kasir mengisi uang diterima, tersedia tombol uang pas dan nominal cepat; kembalian dihitung otomatis. Pembayaran ditolak bila uang diterima kurang dari total.</li>
+<li>Metode <strong>QRIS (simulasi)</strong>: sistem menampilkan kode QR berisi total belanja; kasir mengonfirmasi pembayaran setelah pelanggan membayar. Belum terhubung ke payment gateway.</li>
+<li>Nama pelanggan bersifat opsional.</li>
+<li>Anggota dapat dikaitkan dengan transaksi melalui pencarian nomor anggota. Bila pelanggan belum terdaftar, tombol <strong>Daftarkan anggota baru</strong> membuka formulir singkat (nama dan telepon). Nomor anggota dibuat otomatis dan anggota baru langsung terpilih pada transaksi.</li>
+</ul>
+<h3 id="struk-dan-riwayat">Struk dan riwayat</h3>
+<ul>
+<li>Setelah pembayaran berhasil, struk ditampilkan dan dapat dicetak (printer struk atau "Simpan sebagai PDF" di peramban) maupun diunduh sebagai PDF.</li>
+<li>Halaman riwayat menampilkan transaksi milik kasir yang sedang login dengan filter tanggal (hari ini, tujuh hari terakhir, atau rentang tertentu). Setiap baris dapat dibuka kembali untuk mencetak ulang struk.</li>
+</ul>
+<h2 id="43-panel-admin-owner">4.3 Panel admin: OWNER</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Menu</th>
+<th>Fitur</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Dashboard</td>
+<td>Penjualan, jumlah transaksi, laba kotor, dan belanja restock hari ini</td>
+</tr>
+<tr class="even">
+<td>Transaksi</td>
+<td>Seluruh transaksi penjualan dan restock dengan pencarian kode atau nama pelanggan, filter jenis dan rentang tanggal, serta halaman detail</td>
+</tr>
+<tr class="odd">
+<td>Laporan</td>
+<td>Grafik arus kas (pemasukan penjualan dibandingkan pengeluaran restock), laba kotor (pendapatan dikurangi HPP) beserta margin, dan 10 produk terlaris. Periode dapat dipilih per hari, minggu, bulan, atau tahun</td>
+</tr>
+<tr class="even">
+<td>Laporan: pasangan produk</td>
+<td>Tabel association rules dari AI engine: produk yang sering dibeli bersama beserta confidence dan lift, sebagai bahan penataan rak atau paket promosi</td>
+</tr>
+<tr class="odd">
+<td>Stok</td>
+<td>Sama dengan tampilan LOGISTIK, dalam mode hanya-baca</td>
+</tr>
+</tbody>
+</table></div>
+<p>Arus kas dan laba kotor sengaja dipisahkan. Arus kas menunjukkan uang masuk dikurangi uang keluar pada periode tertentu, sedangkan laba kotor menunjukkan selisih harga jual dan HPP untuk barang yang benar-benar terjual.</p>
+<h2 id="44-panel-admin-logistik">4.4 Panel admin: LOGISTIK</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Menu</th>
+<th>Fitur</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Dashboard</td>
+<td>Jumlah produk aktif, stok menipis, stok habis, jumlah restock bulan ini, serta grafik lima produk yang diperkirakan paling cepat habis</td>
+</tr>
+<tr class="even">
+<td>Produk</td>
+<td>Daftar dengan pencarian, filter kategori, status aktif, dan status stok. Formulir tambah dan ubah produk (SKU, barcode, nama, kategori, satuan, harga jual, stok minimum, URL gambar). Barcode dapat diisi dengan memindai. Produk dapat dinonaktifkan tanpa menghapus riwayat</td>
+</tr>
+<tr class="odd">
+<td>Kategori</td>
+<td>Tambah, ubah, dan nonaktifkan kategori</td>
+</tr>
+<tr class="even">
+<td>Supplier</td>
+<td>Tambah, ubah, dan nonaktifkan supplier (kode, nama, kontak, telepon, email, alamat)</td>
+</tr>
+<tr class="odd">
+<td>Restock</td>
+<td>Daftar restock dengan filter supplier dan tanggal. Formulir restock baru: pilih supplier, tambah baris produk melalui pilihan atau pemindaian, isi jumlah dan harga beli</td>
+</tr>
+<tr class="even">
+<td>Restock: saran AI</td>
+<td>Pada formulir restock, setiap produk menampilkan perkiraan hari hingga stok habis dan saran jumlah. Tombol <strong>Saran AI</strong> menambahkan seluruh produk yang stoknya sudah mencapai titik pesan ulang beserta jumlah yang disarankan. Seluruh angka tetap dapat diubah sebelum disimpan</td>
+</tr>
+<tr class="odd">
+<td>Stok</td>
+<td>Ringkasan stok aman, menipis, dan habis; grafik stok; grafik produk paling mendesak menurut AI; kolom "habis dalam" dan "saran restock" pada tabel; riwayat pergerakan stok</td>
+</tr>
+<tr class="even">
+<td>Stok: detail prediksi</td>
+<td>Klik produk untuk membuka grafik penjualan aktual 28 hari, prediksi 14 hari beserta rentang ketidakpastian, garis sisa stok, model yang dipakai, akurasi backtest, stok pengaman, dan titik pesan ulang</td>
+</tr>
+</tbody>
+</table></div>
+<p>Stok produk tidak dapat diubah langsung melalui formulir produk. Stok hanya bertambah melalui restock dan berkurang melalui penjualan, sehingga setiap perubahan stok selalu memiliki dokumen sumber.</p>
+<h2 id="45-panel-admin-admin">4.5 Panel admin: ADMIN</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Menu</th>
+<th>Fitur</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Dashboard</td>
+<td>Jumlah pengguna aktif per peran, anggota aktif, dan jumlah aktivitas audit hari ini</td>
+</tr>
+<tr class="even">
+<td>Pengguna</td>
+<td>Tambah akun staf, ubah nama dan peran, aktif/nonaktifkan akun, reset password</td>
+</tr>
+<tr class="odd">
+<td>Anggota</td>
+<td>Daftar anggota dengan pencarian dan filter status; tambah, ubah nama dan telepon, aktif/nonaktifkan. Nomor anggota dibuat otomatis</td>
+</tr>
+<tr class="even">
+<td>Audit Trail</td>
+<td>Catatan aktivitas dengan filter modul, aksi, dan rentang tanggal; setiap entri memuat pengguna, peran, keterangan, dan alamat IP</td>
+</tr>
+<tr class="odd">
+<td>AI Engine</td>
+<td>Status engine (online/offline, versi, waktu denyut terakhir, interval), waktu perhitungan terakhir tiap analisis beserta ringkasannya, tombol <strong>Hitung ulang</strong>, dan riwayat job perhitungan</td>
+</tr>
+</tbody>
+</table></div>
+<p>Tombol <strong>Hitung ulang</strong> dinonaktifkan selama masih ada job yang menunggu atau sedang berjalan. Selama job aktif, halaman memperbarui status setiap lima detik.</p>
+<div id="doc-05-model-data" class="doc-anchor"></div>
+
+<h1 id="5-model-data">5. Model Data</h1>
+<h2 id="51-ketentuan-umum">5.1 Ketentuan umum</h2>
+<ul>
+<li>Basis data: MongoDB dalam mode replica set. Nama basis data ditentukan oleh variabel <code>MONGODB_DB</code>.</li>
+<li>Nama field memakai camelCase, sama dengan nama field pada JSON API.</li>
+<li>Setiap dokumen memiliki <code>_id</code> bertipe ObjectId. Pada API, <code>_id</code> dikirim sebagai <code>id</code> berupa string heksadesimal 24 karakter.</li>
+<li>Waktu (<code>createdAt</code>, <code>updatedAt</code>, dan sejenisnya) disimpan sebagai tanggal UTC. Tanggal tanpa jam (misalnya <code>joinedAt</code>) disimpan sebagai string <code>YYYY-MM-DD</code> menurut WIB.</li>
+<li>Nilai uang disimpan sebagai bilangan bulat rupiah tanpa desimal.</li>
+<li>Data master tidak dihapus. Produk, kategori, supplier, pengguna, dan anggota dinonaktifkan melalui field <code>isActive</code> agar riwayat transaksi tetap utuh.</li>
+</ul>
+<h2 id="52-daftar-koleksi">5.2 Daftar koleksi</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Koleksi</th>
+<th>Isi</th>
+<th>Ditulis oleh</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>users</code></td>
+<td>Akun staf (OWNER, LOGISTIK, ADMIN, KASIR)</td>
+<td>backend</td>
+</tr>
+<tr class="even">
+<td><code>members</code></td>
+<td>Anggota koperasi</td>
+<td>backend</td>
+</tr>
+<tr class="odd">
+<td><code>categories</code></td>
+<td>Kategori produk</td>
+<td>backend</td>
+</tr>
+<tr class="even">
+<td><code>products</code></td>
+<td>Katalog produk beserta stok dan HPP</td>
+<td>backend</td>
+</tr>
+<tr class="odd">
+<td><code>suppliers</code></td>
+<td>Pemasok barang</td>
+<td>backend</td>
+</tr>
+<tr class="even">
+<td><code>transactions</code></td>
+<td>Transaksi penjualan (<code>SALE</code>) dan restock (<code>RESTOCK</code>)</td>
+<td>backend</td>
+</tr>
+<tr class="odd">
+<td><code>stock_movements</code></td>
+<td>Pergerakan stok per produk</td>
+<td>backend</td>
+</tr>
+<tr class="even">
+<td><code>counters</code></td>
+<td>Nomor urut kode transaksi harian dan nomor anggota</td>
+<td>backend</td>
+</tr>
+<tr class="odd">
+<td><code>audit_logs</code></td>
+<td>Audit trail</td>
+<td>backend</td>
+</tr>
+<tr class="even">
+<td><code>insights</code></td>
+<td>Hasil analisis AI</td>
+<td>ai-engine</td>
+</tr>
+<tr class="odd">
+<td><code>ai_jobs</code></td>
+<td>Antrean dan riwayat perhitungan AI</td>
+<td>backend, ai-engine, skrip seed</td>
+</tr>
+<tr class="even">
+<td><code>ai_engine_status</code></td>
+<td>Denyut (<em>heartbeat</em>) AI engine</td>
+<td>ai-engine</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="53-rincian-koleksi">5.3 Rincian koleksi</h2>
+<h3 id="users"><code>users</code></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Tipe</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>name</code></td>
+<td>string</td>
+<td>Nama tampilan, maksimal 60 karakter</td>
+</tr>
+<tr class="even">
+<td><code>username</code></td>
+<td>string</td>
+<td>Unik; 3–32 karakter berupa huruf kecil, angka, titik, atau garis bawah; otomatis diubah ke huruf kecil</td>
+</tr>
+<tr class="odd">
+<td><code>passwordHash</code></td>
+<td>string</td>
+<td>Hash bcrypt; tidak pernah dikirim melalui API</td>
+</tr>
+<tr class="even">
+<td><code>role</code></td>
+<td>string</td>
+<td><code>OWNER</code>, <code>LOGISTIK</code>, <code>ADMIN</code>, atau <code>KASIR</code></td>
+</tr>
+<tr class="odd">
+<td><code>isActive</code></td>
+<td>boolean</td>
+<td>Akun nonaktif tidak dapat login dan sesi yang berjalan langsung ditolak</td>
+</tr>
+<tr class="even">
+<td><code>createdAt</code>, <code>updatedAt</code></td>
+<td>tanggal</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="members"><code>members</code></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Tipe</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>memberNumber</code></td>
+<td>string</td>
+<td>Unik, format <code>KOP-NNN</code> (minimal tiga digit), dibuat otomatis</td>
+</tr>
+<tr class="even">
+<td><code>name</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><code>phone</code></td>
+<td>string / null</td>
+<td>Opsional</td>
+</tr>
+<tr class="even">
+<td><code>isActive</code></td>
+<td>boolean</td>
+<td>Anggota nonaktif tidak dapat dikaitkan ke transaksi baru</td>
+</tr>
+<tr class="odd">
+<td><code>joinedAt</code></td>
+<td>string</td>
+<td><code>YYYY-MM-DD</code>, bawaan hari ini (WIB)</td>
+</tr>
+<tr class="even">
+<td><code>createdAt</code>, <code>updatedAt</code></td>
+<td>tanggal</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="categories"><code>categories</code></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Tipe</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>name</code></td>
+<td>string</td>
+<td>Unik</td>
+</tr>
+<tr class="even">
+<td><code>description</code></td>
+<td>string / null</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><code>isActive</code></td>
+<td>boolean</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="products"><code>products</code></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Tipe</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>sku</code></td>
+<td>string</td>
+<td>Unik, kode internal</td>
+</tr>
+<tr class="even">
+<td><code>barcode</code></td>
+<td>string</td>
+<td>Opsional; bila diisi harus unik. Field tidak disimpan sama sekali bila kosong</td>
+</tr>
+<tr class="odd">
+<td><code>name</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr class="even">
+<td><code>categoryId</code></td>
+<td>ObjectId</td>
+<td>Rujukan ke <code>categories</code></td>
+</tr>
+<tr class="odd">
+<td><code>unit</code></td>
+<td>string</td>
+<td>Satuan jual, misalnya <code>pcs</code>, <code>bungkus</code>, <code>kg</code></td>
+</tr>
+<tr class="even">
+<td><code>sellingPrice</code></td>
+<td>integer</td>
+<td>Harga jual</td>
+</tr>
+<tr class="odd">
+<td><code>costPrice</code></td>
+<td>integer</td>
+<td>HPP rata-rata bergerak; diperbarui setiap restock</td>
+</tr>
+<tr class="even">
+<td><code>lastPurchasePrice</code></td>
+<td>integer</td>
+<td>Harga beli pada restock terakhir</td>
+</tr>
+<tr class="odd">
+<td><code>stock</code></td>
+<td>integer</td>
+<td>Stok saat ini; tidak pernah negatif</td>
+</tr>
+<tr class="even">
+<td><code>minimumStock</code></td>
+<td>integer</td>
+<td>Batas stok menipis</td>
+</tr>
+<tr class="odd">
+<td><code>imageUrl</code></td>
+<td>string / null</td>
+<td></td>
+</tr>
+<tr class="even">
+<td><code>isActive</code></td>
+<td>boolean</td>
+<td>Produk nonaktif tidak muncul di kasir</td>
+</tr>
+<tr class="odd">
+<td><code>createdAt</code>, <code>updatedAt</code></td>
+<td>tanggal</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<p>Status stok tidak disimpan, melainkan dihitung saat dibaca:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Status</th>
+<th>Kondisi</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>OUT</code></td>
+<td><code>stock</code> = 0</td>
+</tr>
+<tr class="even">
+<td><code>LOW</code></td>
+<td>0 &lt; <code>stock</code> ≤ <code>minimumStock</code></td>
+</tr>
+<tr class="odd">
+<td><code>OK</code></td>
+<td><code>stock</code> &gt; <code>minimumStock</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>Produk baru selalu dibuat dengan <code>stock</code> = 0 dan <code>costPrice</code> = 0. Stok awal diisi melalui restock pertama.</p>
+<h3 id="suppliers"><code>suppliers</code></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Tipe</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>supplierCode</code></td>
+<td>string</td>
+<td>Unik, misalnya <code>SUP-001</code></td>
+</tr>
+<tr class="even">
+<td><code>name</code></td>
+<td>string</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><code>contactPerson</code>, <code>phone</code>, <code>email</code>, <code>address</code>, <code>notes</code></td>
+<td>string / null</td>
+<td>Opsional</td>
+</tr>
+<tr class="even">
+<td><code>isActive</code></td>
+<td>boolean</td>
+<td>Supplier nonaktif tidak dapat dipilih untuk restock baru</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="transactions"><code>transactions</code></h3>
+<p>Satu koleksi menampung dua jenis transaksi yang dibedakan oleh field <code>type</code>.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Tipe</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>code</code></td>
+<td>string</td>
+<td>Unik. <code>TRX-YYYYMMDD-NNNN</code> untuk penjualan, <code>RST-YYYYMMDD-NNNN</code> untuk restock; nomor urut dimulai ulang setiap hari (WIB)</td>
+</tr>
+<tr class="even">
+<td><code>type</code></td>
+<td>string</td>
+<td><code>SALE</code> atau <code>RESTOCK</code></td>
+</tr>
+<tr class="odd">
+<td><code>status</code></td>
+<td>string</td>
+<td><code>COMPLETED</code> (nilai lain dicadangkan)</td>
+</tr>
+<tr class="even">
+<td><code>cashier</code></td>
+<td>objek / null</td>
+<td><code>{id, name}</code> kasir; hanya pada penjualan</td>
+</tr>
+<tr class="odd">
+<td><code>customerName</code></td>
+<td>string / null</td>
+<td>Nama pelanggan; hanya pada penjualan</td>
+</tr>
+<tr class="even">
+<td><code>member</code></td>
+<td>objek / null</td>
+<td><code>{id, memberNumber, name}</code>; snapshot anggota pada penjualan</td>
+</tr>
+<tr class="odd">
+<td><code>supplier</code></td>
+<td>objek / null</td>
+<td><code>{id, supplierCode, name}</code>; hanya pada restock</td>
+</tr>
+<tr class="even">
+<td><code>items</code></td>
+<td>array</td>
+<td>Snapshot item (lihat di bawah)</td>
+</tr>
+<tr class="odd">
+<td><code>subtotal</code>, <code>discount</code>, <code>tax</code>, <code>total</code></td>
+<td>integer</td>
+<td>Diskon dan pajak saat ini selalu 0</td>
+</tr>
+<tr class="even">
+<td><code>payment</code></td>
+<td>objek / null</td>
+<td><code>{method, amountPaid, change, paidAt}</code>; hanya pada penjualan</td>
+</tr>
+<tr class="odd">
+<td><code>notes</code></td>
+<td>string / null</td>
+<td></td>
+</tr>
+<tr class="even">
+<td><code>createdBy</code></td>
+<td>objek</td>
+<td><code>{id, name}</code> pembuat transaksi</td>
+</tr>
+<tr class="odd">
+<td><code>createdAt</code></td>
+<td>tanggal</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<p>Item penjualan memuat <code>productId</code>, <code>sku</code>, <code>name</code>, <code>unit</code>, <code>quantity</code>, <code>price</code> (harga jual), <code>costPrice</code> (HPP saat transaksi), dan <code>subtotal</code>. Item restock memuat <code>productId</code>, <code>sku</code>, <code>name</code>, <code>unit</code>, <code>quantity</code>, <code>purchasePrice</code>, dan <code>subtotal</code>.</p>
+<h3 id="stock_movements"><code>stock_movements</code></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Tipe</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>productId</code>, <code>productName</code></td>
+<td>ObjectId, string</td>
+<td></td>
+</tr>
+<tr class="even">
+<td><code>type</code></td>
+<td>string</td>
+<td><code>SALE</code>, <code>RESTOCK</code> (nilai <code>ADJUSTMENT</code> dicadangkan)</td>
+</tr>
+<tr class="odd">
+<td><code>quantity</code></td>
+<td>integer</td>
+<td>Jumlah yang bergerak</td>
+</tr>
+<tr class="even">
+<td><code>stockBefore</code>, <code>stockAfter</code></td>
+<td>integer</td>
+<td>Stok sebelum dan sesudah pergerakan</td>
+</tr>
+<tr class="odd">
+<td><code>referenceId</code>, <code>referenceCode</code></td>
+<td>ObjectId, string</td>
+<td>Transaksi sumber</td>
+</tr>
+<tr class="even">
+<td><code>createdBy</code></td>
+<td>objek</td>
+<td><code>{id, name}</code></td>
+</tr>
+<tr class="odd">
+<td><code>createdAt</code></td>
+<td>tanggal</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<p>Koleksi ini juga dipakai AI engine untuk mengenali hari-hari ketika sebuah produk kehabisan stok.</p>
+<h3 id="counters"><code>counters</code></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th><code>_id</code></th>
+<th>Isi</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>TRX-YYYYMMDD</code></td>
+<td>Nomor urut penjualan pada tanggal tersebut</td>
+</tr>
+<tr class="even">
+<td><code>RST-YYYYMMDD</code></td>
+<td>Nomor urut restock pada tanggal tersebut</td>
+</tr>
+<tr class="odd">
+<td><code>MEMBER</code></td>
+<td>Nomor urut anggota terakhir</td>
+</tr>
+</tbody>
+</table></div>
+<p>Nomor urut dibuat dengan operasi <code>findOneAndUpdate</code> + <code>$inc</code> yang atomik, bukan dengan menghitung jumlah dokumen. Karena dijalankan di dalam transaksi, nomor urut ikut dibatalkan bila transaksi gagal.</p>
+<h3 id="audit_logs"><code>audit_logs</code></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Tipe</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>user</code></td>
+<td>objek</td>
+<td><code>{id, name, role}</code> pelaku</td>
+</tr>
+<tr class="even">
+<td><code>action</code></td>
+<td>string</td>
+<td><code>LOGIN</code>, <code>LOGOUT</code>, <code>CREATE</code>, <code>UPDATE</code>, <code>DEACTIVATE</code>, <code>ACTIVATE</code>, <code>RESET_PASSWORD</code>, <code>SALE</code>, <code>RESTOCK</code>, <code>RECOMPUTE</code></td>
+</tr>
+<tr class="odd">
+<td><code>module</code></td>
+<td>string</td>
+<td><code>AUTH</code>, <code>USER</code>, <code>MEMBER</code>, <code>CATEGORY</code>, <code>PRODUCT</code>, <code>SUPPLIER</code>, <code>RESTOCK</code>, <code>SALE</code>, <code>AI</code></td>
+</tr>
+<tr class="even">
+<td><code>referenceId</code></td>
+<td>ObjectId / null</td>
+<td>Dokumen yang terkait</td>
+</tr>
+<tr class="odd">
+<td><code>description</code></td>
+<td>string</td>
+<td>Keterangan singkat yang dapat dibaca manusia</td>
+</tr>
+<tr class="even">
+<td><code>ip</code></td>
+<td>string / null</td>
+<td>Alamat IP klien</td>
+</tr>
+<tr class="odd">
+<td><code>createdAt</code></td>
+<td>tanggal</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="koleksi-ai">Koleksi AI</h3>
+<p>Struktur <code>insights</code>, <code>ai_jobs</code>, dan <code>ai_engine_status</code> dijelaskan pada bab <a href="#doc-07-ai-engine">AI Engine</a>.</p>
+<h2 id="54-indeks">5.4 Indeks</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Koleksi</th>
+<th>Indeks</th>
+<th>Tujuan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>users</code></td>
+<td><code>username</code> (unik); <code>role</code> + <code>isActive</code></td>
+<td>Login, filter pengguna</td>
+</tr>
+<tr class="even">
+<td><code>members</code></td>
+<td><code>memberNumber</code> (unik); <code>name</code></td>
+<td>Pencarian anggota</td>
+</tr>
+<tr class="odd">
+<td><code>categories</code></td>
+<td><code>name</code> (unik)</td>
+<td></td>
+</tr>
+<tr class="even">
+<td><code>products</code></td>
+<td><code>sku</code> (unik); <code>barcode</code> (unik parsial, hanya bila berupa string); <code>categoryId</code>; <code>isActive</code></td>
+<td>Pencarian dan pemindaian</td>
+</tr>
+<tr class="odd">
+<td><code>suppliers</code></td>
+<td><code>supplierCode</code> (unik); <code>name</code></td>
+<td></td>
+</tr>
+<tr class="even">
+<td><code>transactions</code></td>
+<td><code>code</code> (unik); <code>type</code> + <code>createdAt</code>; <code>cashier.id</code> + <code>createdAt</code>; <code>supplier.id</code>; <code>member.id</code>; <code>items.productId</code></td>
+<td>Laporan, riwayat kasir, analisis</td>
+</tr>
+<tr class="odd">
+<td><code>stock_movements</code></td>
+<td><code>productId</code> + <code>createdAt</code></td>
+<td>Riwayat stok per produk</td>
+</tr>
+<tr class="even">
+<td><code>audit_logs</code></td>
+<td><code>createdAt</code>; <code>user.id</code> + <code>createdAt</code>; <code>module</code> + <code>createdAt</code></td>
+<td>Filter audit trail</td>
+</tr>
+<tr class="odd">
+<td><code>ai_jobs</code></td>
+<td><code>status</code> + <code>requestedAt</code>; <code>requestedAt</code></td>
+<td>Pengambilan job dan riwayat</td>
+</tr>
+</tbody>
+</table></div>
+<p>Indeks dibuat otomatis ketika backend dinyalakan dan bersifat idempoten. Indeks barcode sengaja dibuat parsial, bukan <em>sparse</em>, karena indeks <em>sparse</em> tetap mengindeks nilai <code>null</code> sehingga produk kedua tanpa barcode akan dianggap duplikat.</p>
+<h2 id="55-aturan-bisnis-penting">5.5 Aturan bisnis penting</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Aturan</th>
+<th>Penjelasan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Harga dari basis data</td>
+<td>Harga jual dan HPP pada transaksi selalu dibaca dari koleksi <code>products</code>, bukan dari permintaan klien</td>
+</tr>
+<tr class="even">
+<td>Stok tidak boleh negatif</td>
+<td>Pengurangan stok memakai pembaruan bersyarat <code>stock &gt;= quantity</code> di dalam transaksi</td>
+</tr>
+<tr class="odd">
+<td>Produk tidak boleh ganda</td>
+<td>Satu produk hanya boleh muncul satu kali dalam satu penjualan atau restock</td>
+</tr>
+<tr class="even">
+<td>Batas item</td>
+<td>Maksimal 50 baris per transaksi; jumlah per baris maksimal 999 untuk penjualan dan 10.000 untuk restock</td>
+</tr>
+<tr class="odd">
+<td>Pembayaran tunai</td>
+<td><code>amountPaid</code> harus ≥ <code>total</code>; kembalian = <code>amountPaid</code> − <code>total</code></td>
+</tr>
+<tr class="even">
+<td>Pembayaran QRIS</td>
+<td><code>amountPaid</code> = <code>total</code>, kembalian 0</td>
+</tr>
+<tr class="odd">
+<td>Anggota pada penjualan</td>
+<td>Anggota harus ada dan aktif</td>
+</tr>
+<tr class="even">
+<td>Supplier pada restock</td>
+<td>Supplier harus aktif; produk nonaktif tetap boleh di-restock</td>
+</tr>
+<tr class="odd">
+<td>HPP rata-rata bergerak</td>
+<td>Lihat rumus di bawah</td>
+</tr>
+</tbody>
+</table></div>
+<p>Rumus HPP rata-rata bergerak yang dijalankan pada setiap baris restock:</p>
+<pre class="text"><code>HPP baru = (stok lama × HPP lama + jumlah masuk × harga beli) / (stok lama + jumlah masuk)</code></pre>
+<p>Hasilnya dibulatkan ke rupiah terdekat (setengah ke atas). Bila stok lama dan jumlah masuk sama-sama nol, HPP baru sama dengan harga beli.</p>
+<div id="doc-06-referensi-api" class="doc-anchor"></div>
+
+<h1 id="6-referensi-api">6. Referensi API</h1>
+<h2 id="61-ketentuan-umum">6.1 Ketentuan umum</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Hal</th>
+<th>Ketentuan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Alamat dasar</td>
+<td><code>/api/v1</code> (pada deployment: <code>https://&lt;domain-aplikasi&gt;/api/v1</code>; pada pengembangan: <code>http://localhost:8000/api/v1</code>)</td>
+</tr>
+<tr class="even">
+<td>Format data</td>
+<td>JSON, nama field camelCase</td>
+</tr>
+<tr class="odd">
+<td>Autentikasi</td>
+<td>Header <code>Authorization: Bearer &lt;token&gt;</code> pada semua endpoint kecuali <code>POST /auth/login</code></td>
+</tr>
+<tr class="even">
+<td>Tanggal</td>
+<td>Parameter <code>from</code> dan <code>to</code> berformat <code>YYYY-MM-DD</code> menurut WIB dan bersifat inklusif</td>
+</tr>
+<tr class="odd">
+<td>Pagination</td>
+<td>Parameter <code>page</code> (mulai 1) dan <code>limit</code> (bawaan 20, maksimal 100)</td>
+</tr>
+<tr class="even">
+<td>Dokumentasi interaktif</td>
+<td>Swagger UI tersedia di <code>http://localhost:8000/docs</code> pada lingkungan pengembangan. Pada deployment, port backend tidak dibuka ke luar sehingga Swagger tidak dapat diakses dari internet</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="format-respons-berhasil">Format respons berhasil</h3>
+<div class="sourceCode" id="cb5"><pre class="sourceCode json"><code class="sourceCode json"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span> <span class="dt">&quot;success&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span> <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;OK&quot;</span><span class="fu">,</span> <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="fu">}</span> <span class="fu">}</span></span></code></pre></div>
+<p>Respons daftar berhalaman menambahkan objek <code>meta</code>:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode json"><code class="sourceCode json"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;success&quot;</span><span class="fu">:</span> <span class="kw">true</span><span class="fu">,</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;OK&quot;</span><span class="fu">,</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;data&quot;</span><span class="fu">:</span> <span class="ot">[</span> <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;meta&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;page&quot;</span><span class="fu">:</span> <span class="dv">1</span><span class="fu">,</span> <span class="dt">&quot;limit&quot;</span><span class="fu">:</span> <span class="dv">20</span><span class="fu">,</span> <span class="dt">&quot;total&quot;</span><span class="fu">:</span> <span class="dv">134</span><span class="fu">,</span> <span class="dt">&quot;totalPages&quot;</span><span class="fu">:</span> <span class="dv">7</span> <span class="fu">}</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h3 id="format-respons-galat">Format respons galat</h3>
+<div class="sourceCode" id="cb7"><pre class="sourceCode json"><code class="sourceCode json"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;success&quot;</span><span class="fu">:</span> <span class="kw">false</span><span class="fu">,</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;message&quot;</span><span class="fu">:</span> <span class="st">&quot;Stok tidak mencukupi&quot;</span><span class="fu">,</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;error&quot;</span><span class="fu">:</span> <span class="fu">{</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;code&quot;</span><span class="fu">:</span> <span class="st">&quot;INSUFFICIENT_STOCK&quot;</span><span class="fu">,</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>    <span class="dt">&quot;details&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>      <span class="fu">{</span> <span class="dt">&quot;field&quot;</span><span class="fu">:</span> <span class="st">&quot;items[0].quantity&quot;</span><span class="fu">,</span> <span class="dt">&quot;productId&quot;</span><span class="fu">:</span> <span class="st">&quot;…&quot;</span><span class="fu">,</span> <span class="dt">&quot;name&quot;</span><span class="fu">:</span> <span class="st">&quot;Telur Ayam 1 kg&quot;</span><span class="fu">,</span> <span class="dt">&quot;requested&quot;</span><span class="fu">:</span> <span class="dv">3</span><span class="fu">,</span> <span class="dt">&quot;available&quot;</span><span class="fu">:</span> <span class="dv">2</span> <span class="fu">}</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>    <span class="ot">]</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">}</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Status</th>
+<th>Kode</th>
+<th>Arti</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>400</td>
+<td><code>BAD_REQUEST</code></td>
+<td>Permintaan melanggar aturan bisnis, misalnya produk ganda dalam satu transaksi atau password lama salah</td>
+</tr>
+<tr class="even">
+<td>401</td>
+<td><code>INVALID_CREDENTIALS</code></td>
+<td>Username atau password salah</td>
+</tr>
+<tr class="odd">
+<td>401</td>
+<td><code>UNAUTHORIZED</code></td>
+<td>Token tidak ada, tidak valid, atau kedaluwarsa</td>
+</tr>
+<tr class="even">
+<td>403</td>
+<td><code>FORBIDDEN</code></td>
+<td>Peran tidak berhak atas endpoint atau data tersebut</td>
+</tr>
+<tr class="odd">
+<td>403</td>
+<td><code>ACCOUNT_INACTIVE</code></td>
+<td>Akun sudah dinonaktifkan</td>
+</tr>
+<tr class="even">
+<td>404</td>
+<td><code>NOT_FOUND</code></td>
+<td>Data atau endpoint tidak ditemukan</td>
+</tr>
+<tr class="odd">
+<td>409</td>
+<td><code>DUPLICATE</code></td>
+<td>Nilai unik sudah dipakai (username, SKU, barcode, nama kategori, kode supplier)</td>
+</tr>
+<tr class="even">
+<td>409</td>
+<td><code>INSUFFICIENT_STOCK</code></td>
+<td>Stok tidak mencukupi untuk penjualan</td>
+</tr>
+<tr class="odd">
+<td>409</td>
+<td><code>PRODUCT_INACTIVE</code></td>
+<td>Produk dalam keranjang sudah dinonaktifkan</td>
+</tr>
+<tr class="even">
+<td>409</td>
+<td><code>JOB_IN_PROGRESS</code></td>
+<td>Masih ada perhitungan AI yang menunggu atau berjalan</td>
+</tr>
+<tr class="odd">
+<td>422</td>
+<td><code>VALIDATION_ERROR</code></td>
+<td>Format input tidak valid; <code>details</code> memuat nama field dan pesan</td>
+</tr>
+<tr class="even">
+<td>500</td>
+<td><code>INTERNAL_ERROR</code></td>
+<td>Galat tak terduga pada server</td>
+</tr>
+</tbody>
+</table></div>
+<p>Frontend mengarahkan pengguna ke halaman login setiap kali menerima status 401. Oleh karena itu, kesalahan password lama pada fitur ganti password sengaja dikembalikan sebagai 400, bukan 401.</p>
+<h2 id="62-autentikasi">6.2 Autentikasi</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Metode</th>
+<th>Endpoint</th>
+<th>Peran</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>POST</td>
+<td><code>/auth/login</code></td>
+<td>publik</td>
+<td>Body <code>{username, password, app}</code> dengan <code>app</code> = <code>KASIR</code> atau <code>ADMIN</code>. Mengembalikan <code>{token, expiresAt, user}</code></td>
+</tr>
+<tr class="even">
+<td>GET</td>
+<td><code>/auth/me</code></td>
+<td>semua</td>
+<td>Profil pengguna yang sedang login</td>
+</tr>
+<tr class="odd">
+<td>POST</td>
+<td><code>/auth/logout</code></td>
+<td>semua</td>
+<td>Mencatat logout ke audit trail; token dihapus di sisi klien</td>
+</tr>
+<tr class="even">
+<td>PUT</td>
+<td><code>/auth/password</code></td>
+<td>semua</td>
+<td>Body <code>{oldPassword, newPassword}</code></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="63-pengguna-dan-anggota">6.3 Pengguna dan anggota</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Metode</th>
+<th>Endpoint</th>
+<th>Peran</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>GET</td>
+<td><code>/users</code></td>
+<td>ADMIN</td>
+<td>Daftar; filter <code>search</code>, <code>role</code>, <code>isActive</code></td>
+</tr>
+<tr class="even">
+<td>POST</td>
+<td><code>/users</code></td>
+<td>ADMIN</td>
+<td>Body <code>{name, username, password, role}</code></td>
+</tr>
+<tr class="odd">
+<td>GET</td>
+<td><code>/users/{id}</code></td>
+<td>ADMIN</td>
+<td>Detail</td>
+</tr>
+<tr class="even">
+<td>PUT</td>
+<td><code>/users/{id}</code></td>
+<td>ADMIN</td>
+<td>Body <code>{name, role}</code>; peran akun yang sedang dipakai tidak dapat diubah</td>
+</tr>
+<tr class="odd">
+<td>PATCH</td>
+<td><code>/users/{id}/status</code></td>
+<td>ADMIN</td>
+<td>Body <code>{isActive}</code>; akun yang sedang dipakai tidak dapat dinonaktifkan</td>
+</tr>
+<tr class="even">
+<td>POST</td>
+<td><code>/users/{id}/reset-password</code></td>
+<td>ADMIN</td>
+<td>Body <code>{newPassword}</code></td>
+</tr>
+<tr class="odd">
+<td>GET</td>
+<td><code>/members</code></td>
+<td>ADMIN</td>
+<td>Daftar; filter <code>search</code>, <code>isActive</code></td>
+</tr>
+<tr class="even">
+<td>POST</td>
+<td><code>/members</code></td>
+<td>ADMIN, KASIR</td>
+<td>Body <code>{name, phone?, joinedAt?}</code>; nomor anggota dibuat otomatis</td>
+</tr>
+<tr class="odd">
+<td>GET</td>
+<td><code>/members/lookup/{memberNumber}</code></td>
+<td>KASIR, ADMIN</td>
+<td>Pencarian anggota aktif berdasarkan nomor, untuk halaman pembayaran</td>
+</tr>
+<tr class="even">
+<td>GET</td>
+<td><code>/members/{id}</code></td>
+<td>ADMIN</td>
+<td>Detail</td>
+</tr>
+<tr class="odd">
+<td>PUT</td>
+<td><code>/members/{id}</code></td>
+<td>ADMIN</td>
+<td>Body <code>{name, phone, isActive}</code></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="64-katalog">6.4 Katalog</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Metode</th>
+<th>Endpoint</th>
+<th>Peran</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>GET</td>
+<td><code>/categories</code></td>
+<td>KASIR, LOGISTIK, OWNER</td>
+<td>Daftar kategori; filter <code>isActive</code></td>
+</tr>
+<tr class="even">
+<td>POST</td>
+<td><code>/categories</code></td>
+<td>LOGISTIK</td>
+<td>Body <code>{name, description?}</code></td>
+</tr>
+<tr class="odd">
+<td>PUT</td>
+<td><code>/categories/{id}</code></td>
+<td>LOGISTIK</td>
+<td>Body <code>{name, description, isActive}</code></td>
+</tr>
+<tr class="even">
+<td>GET</td>
+<td><code>/products</code></td>
+<td>KASIR, LOGISTIK, OWNER</td>
+<td>Daftar; filter <code>search</code> (nama, SKU, barcode; cocok sebagian), <code>categoryId</code>, <code>isActive</code>, <code>stockStatus</code></td>
+</tr>
+<tr class="odd">
+<td>GET</td>
+<td><code>/products/lookup/{code}</code></td>
+<td>KASIR, LOGISTIK, OWNER</td>
+<td>Hasil pemindaian: dicocokkan persis dengan barcode, lalu dengan SKU (huruf besar). KASIR hanya menerima produk aktif</td>
+</tr>
+<tr class="even">
+<td>GET</td>
+<td><code>/products/{id}</code></td>
+<td>KASIR, LOGISTIK, OWNER</td>
+<td>Detail</td>
+</tr>
+<tr class="odd">
+<td>POST</td>
+<td><code>/products</code></td>
+<td>LOGISTIK</td>
+<td>Body <code>{sku, barcode?, name, categoryId, unit, sellingPrice, minimumStock, imageUrl?}</code></td>
+</tr>
+<tr class="even">
+<td>PUT</td>
+<td><code>/products/{id}</code></td>
+<td>LOGISTIK</td>
+<td>Body sama dengan pembuatan; stok dan HPP tidak dapat diubah melalui endpoint ini</td>
+</tr>
+<tr class="odd">
+<td>PATCH</td>
+<td><code>/products/{id}/status</code></td>
+<td>LOGISTIK</td>
+<td>Body <code>{isActive}</code></td>
+</tr>
+<tr class="even">
+<td>GET</td>
+<td><code>/suppliers</code></td>
+<td>LOGISTIK, OWNER</td>
+<td>Daftar; filter <code>search</code>, <code>isActive</code></td>
+</tr>
+<tr class="odd">
+<td>GET</td>
+<td><code>/suppliers/{id}</code></td>
+<td>LOGISTIK, OWNER</td>
+<td>Detail</td>
+</tr>
+<tr class="even">
+<td>POST</td>
+<td><code>/suppliers</code></td>
+<td>LOGISTIK</td>
+<td>Body <code>{supplierCode, name, contactPerson?, phone?, email?, address?, notes?}</code></td>
+</tr>
+<tr class="odd">
+<td>PUT</td>
+<td><code>/suppliers/{id}</code></td>
+<td>LOGISTIK</td>
+<td>Body sama dengan pembuatan</td>
+</tr>
+<tr class="even">
+<td>PATCH</td>
+<td><code>/suppliers/{id}/status</code></td>
+<td>LOGISTIK</td>
+<td>Body <code>{isActive}</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>Untuk peran KASIR, respons produk tidak memuat <code>costPrice</code> dan <code>lastPurchasePrice</code>.</p>
+<h2 id="65-transaksi-dan-stok">6.5 Transaksi dan stok</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Metode</th>
+<th>Endpoint</th>
+<th>Peran</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>POST</td>
+<td><code>/sales</code></td>
+<td>KASIR</td>
+<td>Checkout. Body <code>{items: [{productId, quantity}], customerName?, memberId?, payment: {method, amountPaid?}}</code>. Status 201</td>
+</tr>
+<tr class="even">
+<td>GET</td>
+<td><code>/sales/mine</code></td>
+<td>KASIR</td>
+<td>Riwayat penjualan kasir yang login; filter <code>from</code>, <code>to</code></td>
+</tr>
+<tr class="odd">
+<td>GET</td>
+<td><code>/sales/{id}</code></td>
+<td>KASIR, OWNER</td>
+<td>Detail untuk struk; KASIR hanya untuk transaksi yang dibuat oleh akun kasir tersebut</td>
+</tr>
+<tr class="even">
+<td>POST</td>
+<td><code>/restocks</code></td>
+<td>LOGISTIK</td>
+<td>Body <code>{supplierId, items: [{productId, quantity, purchasePrice}], notes?}</code>. Status 201</td>
+</tr>
+<tr class="odd">
+<td>GET</td>
+<td><code>/restocks</code></td>
+<td>LOGISTIK</td>
+<td>Daftar; filter <code>supplierId</code>, <code>from</code>, <code>to</code></td>
+</tr>
+<tr class="even">
+<td>GET</td>
+<td><code>/restocks/{id}</code></td>
+<td>LOGISTIK, OWNER</td>
+<td>Detail</td>
+</tr>
+<tr class="odd">
+<td>GET</td>
+<td><code>/transactions</code></td>
+<td>OWNER</td>
+<td>Semua transaksi; filter <code>type</code>, <code>from</code>, <code>to</code>, <code>cashierId</code>, <code>supplierId</code>, <code>memberId</code>, <code>search</code>, <code>sort</code></td>
+</tr>
+<tr class="even">
+<td>GET</td>
+<td><code>/transactions/{id}</code></td>
+<td>OWNER</td>
+<td>Detail</td>
+</tr>
+<tr class="odd">
+<td>GET</td>
+<td><code>/stock/movements</code></td>
+<td>LOGISTIK, OWNER</td>
+<td>Pergerakan stok; filter <code>productId</code>, <code>type</code>, <code>from</code>, <code>to</code></td>
+</tr>
+<tr class="even">
+<td>GET</td>
+<td><code>/reports/stock</code></td>
+<td>LOGISTIK, OWNER</td>
+<td>Kondisi stok seluruh produk aktif; filter <code>categoryId</code>, <code>stockStatus</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>Contoh permintaan checkout:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode json"><code class="sourceCode json"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="er">POST</span> <span class="er">/api/v1/sales</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">{</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;items&quot;</span><span class="fu">:</span> <span class="ot">[</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;productId&quot;</span><span class="fu">:</span> <span class="st">&quot;66f0c1a2b3c4d5e6f7a8b9c0&quot;</span><span class="fu">,</span> <span class="dt">&quot;quantity&quot;</span><span class="fu">:</span> <span class="dv">2</span> <span class="fu">}</span><span class="ot">,</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">{</span> <span class="dt">&quot;productId&quot;</span><span class="fu">:</span> <span class="st">&quot;66f0c1a2b3c4d5e6f7a8b9c1&quot;</span><span class="fu">,</span> <span class="dt">&quot;quantity&quot;</span><span class="fu">:</span> <span class="dv">1</span> <span class="fu">}</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="ot">]</span><span class="fu">,</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;customerName&quot;</span><span class="fu">:</span> <span class="st">&quot;Budi&quot;</span><span class="fu">,</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;memberId&quot;</span><span class="fu">:</span> <span class="kw">null</span><span class="fu">,</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">&quot;payment&quot;</span><span class="fu">:</span> <span class="fu">{</span> <span class="dt">&quot;method&quot;</span><span class="fu">:</span> <span class="st">&quot;CASH&quot;</span><span class="fu">,</span> <span class="dt">&quot;amountPaid&quot;</span><span class="fu">:</span> <span class="dv">50000</span> <span class="fu">}</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="fu">}</span></span></code></pre></div>
+<h2 id="66-laporan-dan-dashboard">6.6 Laporan dan dashboard</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Metode</th>
+<th>Endpoint</th>
+<th>Peran</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>GET</td>
+<td><code>/reports/cashflow</code></td>
+<td>OWNER</td>
+<td><code>granularity</code> (<code>day</code>, <code>week</code>, <code>month</code>, <code>year</code>), <code>from</code>, <code>to</code>. Pemasukan penjualan, pengeluaran restock, dan selisihnya per periode</td>
+</tr>
+<tr class="even">
+<td>GET</td>
+<td><code>/reports/gross-profit</code></td>
+<td>OWNER</td>
+<td>Parameter sama. Pendapatan, HPP, laba kotor, dan margin per periode</td>
+</tr>
+<tr class="odd">
+<td>GET</td>
+<td><code>/reports/best-sellers</code></td>
+<td>OWNER</td>
+<td><code>from</code>, <code>to</code>, <code>limit</code> (bawaan 10), <code>categoryId</code>. Peringkat produk berdasarkan jumlah terjual</td>
+</tr>
+<tr class="even">
+<td>GET</td>
+<td><code>/dashboard/summary</code></td>
+<td>OWNER, LOGISTIK, ADMIN</td>
+<td>Ringkasan yang isinya menyesuaikan peran</td>
+</tr>
+<tr class="odd">
+<td>GET</td>
+<td><code>/audit-logs</code></td>
+<td>ADMIN</td>
+<td>Filter <code>userId</code>, <code>module</code>, <code>action</code>, <code>from</code>, <code>to</code></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="67-hasil-analisis-ai">6.7 Hasil analisis AI</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Metode</th>
+<th>Endpoint</th>
+<th>Peran</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>GET</td>
+<td><code>/insights/frequently-bought</code></td>
+<td>KASIR, OWNER, LOGISTIK</td>
+<td><code>productIds</code> (ID produk di keranjang, dipisah koma), <code>limit</code> (bawaan 3, maksimal 10). Saran produk pendamping</td>
+</tr>
+<tr class="even">
+<td>GET</td>
+<td><code>/insights/association-rules</code></td>
+<td>OWNER, ADMIN</td>
+<td><code>limit</code> (bawaan 20), <code>minLift</code> (bawaan 1,0). Daftar aturan beserta metadata perhitungan</td>
+</tr>
+<tr class="odd">
+<td>GET</td>
+<td><code>/insights/forecast</code></td>
+<td>LOGISTIK, OWNER</td>
+<td>Ringkasan prediksi semua produk aktif, diurutkan dari yang paling cepat habis</td>
+</tr>
+<tr class="even">
+<td>GET</td>
+<td><code>/insights/forecast/{productId}</code></td>
+<td>LOGISTIK, OWNER</td>
+<td>Detail satu produk: riwayat 28 hari, prediksi 14 hari, parameter model</td>
+</tr>
+<tr class="odd">
+<td>GET</td>
+<td><code>/insights/status</code></td>
+<td>ADMIN, OWNER</td>
+<td>Status engine, job aktif, waktu perhitungan terakhir, dan riwayat job</td>
+</tr>
+<tr class="even">
+<td>POST</td>
+<td><code>/insights/jobs</code></td>
+<td>ADMIN</td>
+<td>Meminta perhitungan ulang. Status 409 <code>JOB_IN_PROGRESS</code> bila masih ada job aktif</td>
+</tr>
+</tbody>
+</table></div>
+<p>Bila analisis belum pernah dihitung, endpoint daftar insight tetap mengembalikan status 200 dengan <code>meta</code> (atau <code>generatedAt</code> pada saran produk) bernilai <code>null</code> dan daftar kosong, sehingga frontend dapat menampilkan keadaan kosong tanpa memperlakukannya sebagai galat. Endpoint detail prediksi satu produk mengembalikan 404 bila prediksi untuk produk tersebut belum tersedia.</p>
+<div id="doc-07-ai-engine" class="doc-anchor"></div>
+
+<h1 id="7-ai-engine">7. AI Engine</h1>
+<h2 id="71-gambaran-umum">7.1 Gambaran umum</h2>
+<p>AI engine adalah worker Python yang berjalan terpisah dari backend. Engine membaca data transaksi dari MongoDB, menjalankan dua jenis analisis, dan menulis hasilnya ke koleksi <code>insights</code>. Backend hanya membaca hasil tersebut, sehingga kinerja kasir tidak terpengaruh oleh perhitungan analisis.</p>
+<p>AI engine <strong>bukan</strong> model bahasa (LLM) dan tidak memerlukan layanan AI eksternal. Seluruh algoritma merupakan metode statistik dan penambangan data klasik yang ditulis di atas NumPy tanpa pandas, scikit-learn, maupun statsmodels. Pilihan ini membuat image Docker kecil, dapat berjalan pada prosesor lama tanpa instruksi AVX2, dan setiap rumus dapat ditelusuri langsung pada kode sumber.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Analisis</th>
+<th>Algoritma</th>
+<th>Dipakai oleh</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Produk yang sering dibeli bersama</td>
+<td>Apriori (association rules: support, confidence, lift)</td>
+<td>Kasir: saran di keranjang. OWNER: tabel pasangan produk</td>
+</tr>
+<tr class="even">
+<td>Prediksi penjualan dan saran restock</td>
+<td>Holt-Winters aditif dengan tren teredam dan musim mingguan; cadangan Croston dan rata-rata bergerak; pemilihan model melalui backtest WAPE</td>
+<td>LOGISTIK dan OWNER: halaman stok, dashboard, formulir restock</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="72-pelatihan-model">7.2 Pelatihan model</h2>
+<p>Engine tidak memakai model yang dilatih sekali lalu disimpan sebagai berkas bobot. Setiap kali perhitungan dijalankan, engine membaca ulang data terbaru dari basis data dan membangun modelnya saat itu juga. Dengan demikian, tidak diperlukan tahap pelatihan terpisah dan hasil analisis selalu mengikuti data terakhir.</p>
+<p>Perhitungan dijalankan dalam tiga keadaan:</p>
+<ol type="1">
+<li>Otomatis, apabila hasil analisis tertua sudah lebih lama dari <code>AI_INTERVAL_MINUTES</code> (bawaan 15 menit) atau hasil analisis belum ada.</li>
+<li>Ketika ADMIN menekan tombol <strong>Hitung ulang</strong> pada halaman AI Engine.</li>
+<li>Di akhir skrip <code>seed.py</code>, sehingga data demo langsung memiliki hasil analisis.</li>
+</ol>
+<p>Kualitas hasil bergantung pada jumlah data historis. Pada basis data yang baru dipakai, analisis masih kosong atau kasar (<em>cold start</em>):</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Analisis</th>
+<th>Kebutuhan data minimum</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Association rules</td>
+<td>Sebuah kombinasi produk harus muncul pada minimal 1% transaksi dan minimal dua kali, dengan confidence ≥ 20% dan lift ≥ 1,1</td>
+</tr>
+<tr class="even">
+<td>Holt-Winters</td>
+<td>Riwayat minimal 21 hari dengan tidak lebih dari 60% hari tanpa penjualan; bila belum terpenuhi, engine memakai Croston atau rata-rata bergerak</td>
+</tr>
+<tr class="odd">
+<td>Evaluasi akurasi (backtest)</td>
+<td>Riwayat lebih panjang dari jendela uji ditambah 14 hari</td>
+</tr>
+</tbody>
+</table></div>
+<p>Secara praktis, prediksi baru layak dijadikan acuan setelah sistem mencatat transaksi nyata selama tiga hingga empat minggu.</p>
+<h2 id="73-association-rules-apriori">7.3 Association rules (Apriori)</h2>
+<h3 id="konsep">Konsep</h3>
+<p>Setiap transaksi penjualan diubah menjadi himpunan produk. Jumlah per item tidak diperhitungkan. Untuk aturan <code>A → C</code> ("pembeli A juga membeli C"):</p>
+<pre class="text"><code>support(X)       = jumlah transaksi yang memuat X / jumlah seluruh transaksi
+confidence(A→C)  = support(A ∪ C) / support(A)
+lift(A→C)        = confidence(A→C) / support(C)</code></pre>
+<p>Confidence menyatakan persentase pembeli A yang juga membeli C. Lift menyatakan seberapa jauh kejadian tersebut melebihi kebetulan: lift = 1 berarti tidak ada keterkaitan, lift &gt; 1 berarti kedua produk lebih sering dibeli bersamaan daripada yang diperkirakan secara acak.</p>
+<h3 id="langkah-perhitungan">Langkah perhitungan</h3>
+<ol type="1">
+<li>Transaksi <code>SALE</code> berstatus <code>COMPLETED</code> selama 90 hari terakhir dibentuk menjadi matriks biner transaksi × produk.</li>
+<li>Produk tunggal yang memenuhi support minimum dipertahankan.</li>
+<li>Seluruh pasangan produk dihitung sekaligus melalui perkalian matriks <code>Tᵀ · T</code>, sehingga tetap cepat walaupun jumlah produk ratusan.</li>
+<li>Itemset berukuran tiga dibentuk dari pasangan yang memiliki awalan sama dan dipangkas dengan prinsip Apriori: sebuah itemset hanya dapat sering muncul apabila seluruh subset-nya juga sering muncul.</li>
+<li>Dari setiap itemset sering dibentuk aturan dengan satu produk sebagai konsekuen, lalu disaring dengan confidence dan lift minimum.</li>
+<li>Aturan diurutkan berdasarkan confidence × lift, maksimal 300 aturan. Aturan yang merujuk produk yang sudah dihapus dari katalog dibuang.</li>
+</ol>
+<h3 id="pemakaian-di-kasir">Pemakaian di kasir</h3>
+<p>Endpoint <code>GET /insights/frequently-bought</code> menerima daftar produk di keranjang, lalu memilih aturan yang seluruh antesedennya ada di keranjang dan konsekuennya belum ada di keranjang. Setiap produk konsekuen diberi skor dari aturan terkuatnya (confidence, lalu lift). Produk nonaktif atau berstok habis tidak disarankan. Hasilnya dibatasi tiga saran secara bawaan.</p>
+<h2 id="74-forecasting-penjualan">7.4 Forecasting penjualan</h2>
+<h3 id="data-masukan">Data masukan</h3>
+<p>Untuk setiap produk aktif disusun deret penjualan harian (unit terjual per hari WIB) selama 84 hari terakhir. Hari berjalan tidak ikut dipakai karena belum selesai.</p>
+<p>Hari ketika produk kehabisan stok diperlakukan sebagai <strong>data tersensor</strong>. Pada hari tersebut penjualan tercatat rendah karena barang tidak tersedia, bukan karena permintaan turun. Engine menelusuri <code>stock_movements</code> untuk menemukan rentang sejak <code>stockAfter</code> mencapai 0 hingga restock berikutnya, menandai hari-hari tersebut sebagai kosong, lalu mengisinya dengan rata-rata hari yang sama pada minggu-minggu lain. Tanpa langkah ini, model akan belajar bahwa permintaan menurun setiap kali stok habis.</p>
+<h3 id="model">Model</h3>
+<p><strong>Holt-Winters aditif dengan tren teredam</strong> (model utama). Model ini menangkap tiga komponen: level, tren, dan pola musiman mingguan (panjang musim 7 hari).</p>
+<pre class="text"><code>level_t   = α (y_t − s_{t−7}) + (1 − α)(level_{t−1} + φ·trend_{t−1})
+trend_t   = β (level_t − level_{t−1}) + (1 − β) φ·trend_{t−1}
+season_t  = γ (y_t − level_t) + (1 − γ) s_{t−7}
+ŷ_{t+h}   = level_t + (φ + φ² + … + φ^h)·trend_t + s_{t+h−7}</code></pre>
+<p>Parameter α, β, γ dipilih melalui <em>grid search</em> (80 kombinasi) yang meminimalkan jumlah kuadrat galat prediksi satu langkah. Faktor redaman φ = 0,9 mencegah tren diteruskan lurus tanpa batas. Prediksi negatif dipotong menjadi nol.</p>
+<p><strong>Croston</strong> untuk permintaan jarang (<em>intermittent demand</em>). Metode ini memperkirakan dua besaran secara terpisah, yaitu rata-rata ukuran permintaan ketika terjadi penjualan dan rata-rata jarak antarpenjualan, lalu membaginya untuk mendapatkan laju permintaan harian.</p>
+<p><strong>Rata-rata bergerak 7 hari</strong> sebagai baseline dan cadangan terakhir.</p>
+<h3 id="pemilihan-model-per-produk">Pemilihan model per produk</h3>
+<ol type="1">
+<li><p>Bila riwayat kurang dari 21 hari atau lebih dari 60% hari tanpa penjualan, kandidat adalah Croston (apabila terdapat minimal empat hari dengan penjualan) atau rata-rata bergerak. Selain itu, kandidat adalah Holt-Winters.</p></li>
+<li><p>Kandidat diuji dengan <strong>backtest</strong>: data 7 hari terakhir (28 hari untuk Croston, karena permintaan jarang tidak dapat dinilai dalam seminggu) disembunyikan, model dilatih pada sisa data, lalu prediksinya dibandingkan dengan data aktual.</p></li>
+<li><p>Ukuran galat adalah WAPE (<em>weighted absolute percentage error</em>):</p>
+<pre class="text"><code>WAPE = Σ |aktual − prediksi| / Σ aktual</code></pre></li>
+<li><p>Bila kandidat tidak lebih baik daripada rata-rata bergerak 7 hari pada periode uji yang sama, rata-rata bergerak yang dipakai. Model yang rumit tidak dipakai apabila tidak terbukti lebih akurat.</p></li>
+<li><p>Model terpilih dilatih ulang dengan seluruh data untuk menghasilkan prediksi 14 hari ke depan.</p></li>
+</ol>
+<p>Rentang ketidakpastian pada grafik dihitung sebagai prediksi ± 1,28 · σ · √h, dengan σ simpangan baku galat satu langkah dan h jarak hari ke depan. Rentang ini setara dengan interval kepercayaan sekitar 80%.</p>
+<h2 id="75-dari-prediksi-ke-saran-restock">7.5 Dari prediksi ke saran restock</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Besaran</th>
+<th>Rumus</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Perkiraan hari hingga stok habis</td>
+<td>Prediksi harian dijumlahkan secara kumulatif sampai melampaui stok saat ini; sisa hari dihitung secara proporsional. Di luar horizon 14 hari dipakai rata-rata prediksi (maksimal 365 hari)</td>
+</tr>
+<tr class="even">
+<td>Stok pengaman</td>
+<td><code>z · σ · √L</code>, dengan L = lead time supplier dan z dari tingkat layanan (0,95 → z = 1,645)</td>
+</tr>
+<tr class="odd">
+<td>Titik pesan ulang</td>
+<td>Permintaan selama lead time + stok pengaman</td>
+</tr>
+<tr class="even">
+<td>Perlu restock</td>
+<td>Stok saat ini ≤ titik pesan ulang</td>
+</tr>
+<tr class="odd">
+<td>Saran jumlah restock</td>
+<td>Permintaan selama (lead time + periode review) + stok pengaman − stok saat ini, minimal 0</td>
+</tr>
+</tbody>
+</table></div>
+<p>Lead time bawaan 3 hari dan periode review (jarak antar-restock rutin) bawaan 7 hari. Keduanya dapat disesuaikan melalui variabel lingkungan.</p>
+<p>Pewarnaan tingkat urgensi pada grafik stok: merah apabila stok diperkirakan habis dalam waktu kurang dari atau sama dengan lead time (barang pesanan baru tidak akan sempat tiba), kuning apabila habis dalam waktu kurang dari atau sama dengan lead time ditambah periode review, dan netral untuk kondisi lainnya.</p>
+<h2 id="76-siklus-kerja-worker">7.6 Siklus kerja worker</h2>
+<p>Setiap putaran (bawaan setiap 10 detik) engine menjalankan langkah berikut:</p>
+<ol type="1">
+<li>Menulis denyut ke <code>ai_engine_status</code>. Backend menganggap engine offline apabila denyut terakhir lebih dari tiga menit yang lalu.</li>
+<li>Menandai job berstatus <code>RUNNING</code> yang berjalan lebih dari 30 menit sebagai <code>FAILED</code> (engine sebelumnya diasumsikan mati di tengah perhitungan).</li>
+<li>Membuat job terjadwal (<code>SCHEDULE</code>) apabila tidak ada job aktif dan hasil analisis sudah melewati interval.</li>
+<li>Mengambil satu job <code>PENDING</code> secara atomik, mengubahnya menjadi <code>RUNNING</code>, menjalankan perhitungan, lalu menandainya <code>DONE</code> beserta ringkasan atau <code>FAILED</code> beserta pesan galat.</li>
+</ol>
+<pre class="text"><code>PENDING ──► RUNNING ──► DONE
+                  └───► FAILED</code></pre>
+<p>Hanya satu job <code>PENDING</code> atau <code>RUNNING</code> yang diizinkan pada satu waktu. Galat pada satu putaran (misalnya koneksi basis data terputus sesaat) dicatat ke log, lalu engine mencoba lagi pada putaran berikutnya. Engine berhenti dengan rapi ketika menerima sinyal <code>SIGTERM</code>.</p>
+<h2 id="77-kontrak-data">7.7 Kontrak data</h2>
+<p>Engine dan backend tidak saling memanggil; keduanya hanya berbagi basis data. <code>MONGODB_URI</code> dan <code>MONGODB_DB</code> pada kedua komponen harus sama.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Koleksi</th>
+<th>Ditulis oleh</th>
+<th>Dibaca oleh</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>transactions</code>, <code>products</code>, <code>stock_movements</code></td>
+<td>backend</td>
+<td>engine (hanya baca)</td>
+</tr>
+<tr class="even">
+<td><code>insights</code></td>
+<td>engine</td>
+<td>backend</td>
+</tr>
+<tr class="odd">
+<td><code>ai_jobs</code></td>
+<td>backend (MANUAL), skrip seed (SEED), engine (SCHEDULE dan perubahan status)</td>
+<td>engine, backend</td>
+</tr>
+<tr class="even">
+<td><code>ai_engine_status</code></td>
+<td>engine</td>
+<td>backend</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong><code>insights</code></strong> berisi satu dokumen per jenis analisis yang ditimpa setiap perhitungan selesai:</p>
+<ul>
+<li><code>_id: "association_rules"</code> memuat <code>generatedAt</code>, <code>jobId</code>, <code>engineVersion</code>, <code>params</code>, <code>stats</code> (jumlah transaksi, produk, itemset sering, aturan, durasi), dan <code>rules</code> (anteseden, konsekuen, support, confidence, lift, count).</li>
+<li><code>_id: "forecast"</code> memuat <code>generatedAt</code>, <code>params</code>, <code>stats</code> (jumlah produk, sebaran model, rata-rata WAPE, jumlah produk yang perlu restock), dan <code>products</code>. Setiap produk memuat stok, rata-rata prediksi harian, model dan parameternya, WAPE model dan baseline, perkiraan hari habis, tanggal habis, saran jumlah restock, status perlu restock, titik pesan ulang, stok pengaman, jumlah hari tersensor, riwayat 28 hari, dan prediksi 14 hari beserta batas bawah dan atasnya.</li>
+</ul>
+<p><strong><code>ai_jobs</code></strong> memuat <code>status</code>, <code>trigger</code> (<code>MANUAL</code>, <code>SCHEDULE</code>, <code>SEED</code>), <code>kinds</code>, <code>requestedBy</code>, <code>requestedAt</code>, <code>startedAt</code>, <code>finishedAt</code>, <code>error</code>, dan <code>summary</code>.</p>
+<p><strong><code>ai_engine_status</code></strong> berisi satu dokumen <code>_id: "engine"</code> dengan <code>lastSeenAt</code>, <code>version</code>, <code>intervalMinutes</code>, dan <code>host</code>.</p>
+<p>Rincian bentuk dokumen terdapat pada <code>ai-engine/CONTRACT.md</code>. Perubahan bentuk dokumen harus dilakukan bersamaan pada engine dan pada <code>backend/app/schemas/insight.py</code>.</p>
+<h2 id="78-konfigurasi">7.8 Konfigurasi</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Variabel</th>
+<th>Bawaan</th>
+<th>Arti</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>MONGODB_URI</code>, <code>MONGODB_DB</code></td>
+<td>—</td>
+<td>Harus sama dengan backend</td>
+</tr>
+<tr class="even">
+<td><code>AI_INTERVAL_MINUTES</code></td>
+<td>15</td>
+<td>Jadwal perhitungan ulang otomatis</td>
+</tr>
+<tr class="odd">
+<td><code>AI_POLL_SECONDS</code></td>
+<td>10</td>
+<td>Interval pemeriksaan antrean job</td>
+</tr>
+<tr class="even">
+<td><code>AI_ASSOC_HISTORY_DAYS</code></td>
+<td>90</td>
+<td>Rentang transaksi untuk association rules</td>
+</tr>
+<tr class="odd">
+<td><code>AI_MIN_SUPPORT</code></td>
+<td>0,01</td>
+<td>Support minimum</td>
+</tr>
+<tr class="even">
+<td><code>AI_MIN_CONFIDENCE</code></td>
+<td>0,2</td>
+<td>Confidence minimum</td>
+</tr>
+<tr class="odd">
+<td><code>AI_MIN_LIFT</code></td>
+<td>1,1</td>
+<td>Lift minimum</td>
+</tr>
+<tr class="even">
+<td><code>AI_LEAD_TIME_DAYS</code></td>
+<td>3</td>
+<td>Waktu tunggu barang dari supplier</td>
+</tr>
+<tr class="odd">
+<td><code>AI_REVIEW_DAYS</code></td>
+<td>7</td>
+<td>Jarak antar-restock rutin</td>
+</tr>
+<tr class="even">
+<td><code>AI_SERVICE_LEVEL</code></td>
+<td>0,95</td>
+<td>Peluang stok tidak habis selama lead time; menentukan besar stok pengaman</td>
+</tr>
+</tbody>
+</table></div>
+<p>Parameter tetap: riwayat forecasting 84 hari, horizon 14 hari, backtest 7 hari, dan riwayat yang disertakan untuk grafik 28 hari.</p>
+<h2 id="79-validasi-dan-keterbatasan">7.9 Validasi dan keterbatasan</h2>
+<p>Data demo dari <code>seed.py</code> merupakan simulasi dengan pola yang sengaja ditanam: pasangan produk (misalnya mi instan dengan telur, kopi dengan gula, buku tulis dengan pulpen), pola mingguan (akhir pekan lebih ramai, alat tulis laku pada hari sekolah), tren naik dan turun pada beberapa produk, serta kekurangan stok sesekali. Pengujian menyeluruh menunjukkan engine menemukan kembali pasangan yang ditanam, antara lain mi instan → telur dengan confidence sekitar 57%. Prediksi seluruh 25 produk demo terbagi ke tiga model: Holt-Winters 11 produk, rata-rata bergerak 9 produk, dan Croston 5 produk.</p>
+<p>Keterbatasan yang perlu diperhatikan:</p>
+<ul>
+<li>Volume penjualan harian per produk pada toko koperasi kecil (sekitar 1–5 unit per hari), sehingga WAPE harian relatif tinggi (sekitar 0,4–0,9). Prediksi lebih bermakna dibaca sebagai kecenderungan mingguan daripada angka per hari.</li>
+<li>Hari libur nasional, promosi, dan awal tahun ajaran belum dimodelkan secara khusus.</li>
+<li>Association rules hanya menunjukkan keterkaitan, bukan sebab-akibat.</li>
+<li>Saran restock merupakan alat bantu. Keputusan akhir tetap berada pada petugas logistik, dan seluruh angka saran dapat diubah pada formulir restock.</li>
+</ul>
+<div id="doc-08-pemindaian-barcode" class="doc-anchor"></div>
+
+<h1 id="8-pemindaian-barcode">8. Pemindaian Barcode</h1>
+<h2 id="81-cara-input-yang-didukung">8.1 Cara input yang didukung</h2>
+<p>Pemindaian barcode tersedia di aplikasi kasir dan panel admin (peran LOGISTIK). Empat cara input didukung dan seluruhnya berakhir pada endpoint yang sama, yaitu <code>GET /products/lookup/{kode}</code>.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Cara</th>
+<th>Perangkat</th>
+<th>Penanganan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Scanner USB atau Bluetooth</td>
+<td>Scanner genggam yang bekerja sebagai keyboard (<em>keyboard wedge</em>)</td>
+<td>Composable <code>useScannerInput</code> mendeteksi ketikan sangat cepat yang diakhiri Enter, di mana pun fokus berada</td>
+</tr>
+<tr class="even">
+<td>Ketik manual</td>
+<td>Keyboard</td>
+<td>Kolom pencarian POS dan kolom barcode memproses kode ketika Enter ditekan</td>
+</tr>
+<tr class="odd">
+<td>Kamera yang terhubung ke komputer</td>
+<td>Webcam, atau ponsel yang difungsikan sebagai webcam (DroidCam, Iriun, mode webcam Android)</td>
+<td>Komponen <code>BarcodeScanner</code>: kamera dipilih dari daftar perangkat pada dialog</td>
+</tr>
+<tr class="even">
+<td>Kamera perangkat itu sendiri</td>
+<td>Ponsel atau tablet yang membuka aplikasi secara langsung</td>
+<td>Komponen <code>BarcodeScanner</code>: kamera belakang dipilih otomatis</td>
+</tr>
+</tbody>
+</table></div>
+<p>Decoding gambar kamera memakai pustaka ZXing (<code>@zxing/browser</code>) yang berjalan sepenuhnya di peramban. Proses ini merupakan algoritma pembacaan kode batang biasa, bukan model AI, dan tidak mengirim gambar ke server.</p>
+<h2 id="82-format-barcode">8.2 Format barcode</h2>
+<p>Pemindaian melalui kamera menerima format berikut:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Format</th>
+<th>Pemakaian umum</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>EAN-13</td>
+<td>Kemasan produk ritel di Indonesia (umumnya diawali 899)</td>
+</tr>
+<tr class="even">
+<td>EAN-8</td>
+<td>Kemasan berukuran kecil</td>
+</tr>
+<tr class="odd">
+<td>UPC-A, UPC-E</td>
+<td>Produk impor dari Amerika Utara</td>
+</tr>
+<tr class="even">
+<td>Code 128, Code 39</td>
+<td>Label cetakan sendiri, misalnya label rak atau label SKU</td>
+</tr>
+<tr class="odd">
+<td>ITF</td>
+<td>Kemasan karton grosir</td>
+</tr>
+<tr class="even">
+<td>QR Code</td>
+<td>Diterima sebagai tambahan</td>
+</tr>
+</tbody>
+</table></div>
+<p>Format yang dapat dibaca melalui scanner USB ditentukan oleh perangkat scanner itu sendiri. Scanner laser satu garis umumnya hanya membaca barcode satu dimensi, sedangkan scanner jenis <em>imager</em> (2D) dapat membaca barcode satu dimensi maupun QR Code. Aplikasi hanya menerima teks hasil pembacaan scanner.</p>
+<h2 id="83-pencocokan-kode">8.3 Pencocokan kode</h2>
+<p>Backend mencocokkan kode hasil pindai secara berurutan:</p>
+<ol type="1">
+<li>Persis sama dengan field <code>barcode</code> produk.</li>
+<li>Bila tidak ditemukan, dicocokkan dengan <code>sku</code> setelah diubah ke huruf besar. Dengan demikian, label SKU cetakan sendiri juga dapat dipindai.</li>
+</ol>
+<p>Untuk peran KASIR, hanya produk aktif yang dikembalikan. Bila kode tidak ditemukan, API mengembalikan 404 dan aplikasi menampilkan pemberitahuan.</p>
+<h2 id="84-perilaku-per-halaman">8.4 Perilaku per halaman</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Halaman</th>
+<th>Perilaku setelah kode terbaca</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>POS (kasir)</td>
+<td>Produk masuk ke keranjang; pemindaian ulang produk yang sama menambah jumlahnya. Dialog kamera tetap terbuka (mode kontinu) untuk barang berikutnya</td>
+</tr>
+<tr class="even">
+<td>Formulir restock (LOGISTIK)</td>
+<td>Produk ditambahkan sebagai baris baru atau jumlahnya bertambah satu bila sudah ada. Bila kode belum terdaftar, tersedia tautan untuk membuat produk baru dengan barcode yang sudah terisi</td>
+</tr>
+<tr class="odd">
+<td>Formulir produk (LOGISTIK)</td>
+<td>Kode mengisi field barcode, disertai pemeriksaan duplikasi dengan produk lain</td>
+</tr>
+<tr class="even">
+<td>Daftar produk (LOGISTIK)</td>
+<td>Membuka produk yang cocok, atau membuka formulir produk baru dengan barcode terisi bila belum terdaftar</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="85-detail-teknis">8.5 Detail teknis</h2>
+<p><strong>Deteksi scanner USB.</strong> Scanner mengetik belasan karakter dengan jeda kurang dari sekitar 35 milidetik per tombol lalu menekan Enter, jauh lebih cepat daripada ketikan manusia. Apabila pola tersebut terdeteksi dengan panjang minimal empat karakter, penekanan Enter ditahan agar formulir tidak terkirim, karakter yang sempat masuk ke kolom yang sedang fokus dikembalikan seperti semula, lalu kode diproses. Kolom yang menangani barcode sendiri diberi atribut <code>data-scan-input</code> agar kode tidak diproses dua kali.</p>
+<p><strong>Kamera.</strong> Pilihan kamera disimpan di peramban dengan kunci <code>koperasi-camera</code> dan dipakai kembali pada pemindaian berikutnya. Bila kamera tersimpan sudah tidak tersedia, aplikasi beralih ke kamera lain. Setiap kode yang terbaca ditandai dengan bunyi dan kilatan singkat. Kode yang sama tidak dikirim ulang selama 1,5 detik agar barang yang masih berada di depan kamera tidak terhitung berkali-kali.</p>
+<p><strong>Syarat HTTPS.</strong> Peramban hanya mengizinkan akses kamera pada halaman HTTPS atau <code>localhost</code>. Pada deployment, domain aplikasi wajib memakai HTTPS agar fitur kamera dapat digunakan. Scanner USB dan input manual tidak memerlukan HTTPS.</p>
+<p><strong>Kode bersama.</strong> Berkas <code>composables/useScannerInput.ts</code> dan <code>components/common/BarcodeScanner.vue</code> identik di kedua aplikasi frontend. Perubahan pada satu aplikasi harus disalin ke aplikasi lainnya.</p>
+<h2 id="86-data-demo">8.6 Data demo</h2>
+<p>Seluruh 25 produk demo memiliki barcode EAN-13 fiktif berawalan 899 dengan digit pemeriksa (<em>check digit</em>) yang valid. Untuk uji coba kamera, barcode tersebut dapat dicetak atau ditampilkan dari generator barcode EAN-13 mana pun.</p>
+<div id="doc-09-instalasi-dan-pengembangan" class="doc-anchor"></div>
+
+<h1 id="9-instalasi-dan-pengembangan">9. Instalasi dan Pengembangan</h1>
+<h2 id="91-prasyarat">9.1 Prasyarat</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Perangkat lunak</th>
+<th>Versi</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Python</td>
+<td>3.11 atau lebih baru</td>
+<td>Backend dan AI engine</td>
+</tr>
+<tr class="even">
+<td>Node.js</td>
+<td>22 (LTS)</td>
+<td>Kedua aplikasi frontend; sama dengan versi pada image Docker</td>
+</tr>
+<tr class="odd">
+<td>MongoDB</td>
+<td>7 atau lebih baru, mode replica set</td>
+<td>Wajib replica set karena penjualan dan restock memakai transaksi multi-dokumen</td>
+</tr>
+<tr class="even">
+<td>Git</td>
+<td>—</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>Pandoc</td>
+<td>3.x (opsional)</td>
+<td>Hanya untuk membangun ulang dokumentasi HTML</td>
+</tr>
+</tbody>
+</table></div>
+<p>MongoDB replica set satu node untuk pengembangan lokal dapat dijalankan dengan Docker:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> run <span class="at">-d</span> <span class="at">--name</span> mongo-dev <span class="at">-p</span> 27017:27017 mongo:7 <span class="at">--replSet</span> rs0</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> exec mongo-dev mongosh <span class="at">--eval</span> <span class="st">&#39;rs.initiate({_id:&quot;rs0&quot;,members:[{_id:0,host:&quot;localhost:27017&quot;}]})&#39;</span></span></code></pre></div>
+<p>URI yang dipakai: <code>mongodb://localhost:27017/?directConnection=true</code>.</p>
+<h2 id="92-backend">9.2 Backend</h2>
+<div class="sourceCode" id="cb14"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> backend</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-m</span> venv .venv</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="bu">source</span> .venv/bin/activate            <span class="co"># Windows: .venv\Scripts\activate</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install <span class="at">-r</span> requirements-dev.txt  <span class="co"># dependensi runtime + pytest + ruff</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> .env.example .env                 <span class="co"># isi MONGODB_URI, MONGODB_DB, JWT_SECRET, TEST_MONGODB_DB</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-m</span> scripts.create_initial_users</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="ex">uvicorn</span> app.main:app <span class="at">--reload</span> <span class="at">--host</span> 0.0.0.0 <span class="at">--port</span> 8000</span></code></pre></div>
+<p>Variabel lingkungan backend:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Variabel</th>
+<th>Bawaan</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>MONGODB_URI</code></td>
+<td><code>mongodb://localhost:27017/?directConnection=true</code></td>
+<td>Karakter khusus pada password wajib di-<em>URL-encode</em> (misalnya <code>+</code> menjadi <code>%2B</code>, <code>@</code> menjadi <code>%40</code>)</td>
+</tr>
+<tr class="even">
+<td><code>MONGODB_DB</code></td>
+<td><code>koperasi_dev</code></td>
+<td>Nama basis data</td>
+</tr>
+<tr class="odd">
+<td><code>JWT_SECRET</code></td>
+<td>— (wajib)</td>
+<td>Minimal 32 karakter; dapat dibuat dengan <code>python -c "import secrets; print(secrets.token_urlsafe(48))"</code></td>
+</tr>
+<tr class="even">
+<td><code>JWT_EXPIRE_MINUTES</code></td>
+<td>480</td>
+<td>Masa berlaku sesi</td>
+</tr>
+<tr class="odd">
+<td><code>CORS_ORIGINS</code></td>
+<td><code>http://localhost:5173,http://localhost:5174</code></td>
+<td>Asal frontend yang diizinkan saat pengembangan</td>
+</tr>
+<tr class="even">
+<td><code>APP_TZ</code></td>
+<td><code>Asia/Jakarta</code></td>
+<td>Zona waktu acuan tanggal</td>
+</tr>
+<tr class="odd">
+<td><code>TEST_MONGODB_DB</code></td>
+<td><code>koperasi_test</code></td>
+<td>Basis data pengujian; <strong>dihapus setiap kali pengujian berjalan</strong>, sehingga wajib berbeda dari basis data kerja</td>
+</tr>
+</tbody>
+</table></div>
+<p>Berkas <code>.env</code> berisi rahasia dan tidak boleh di-commit ke repositori.</p>
+<p>Swagger UI tersedia di <code>http://localhost:8000/docs</code>. Untuk mencoba endpoint yang memerlukan login, panggil <code>POST /api/v1/auth/login</code>, salin nilai <code>data.token</code>, lalu tekan tombol <strong>Authorize</strong>.</p>
+<h2 id="93-data-demo">9.3 Data demo</h2>
+<div class="sourceCode" id="cb15"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> backend</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-m</span> scripts.seed <span class="at">--reset</span>                          <span class="co"># ke MONGODB_DB pada .env (meminta konfirmasi)</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="va">MONGODB_DB</span><span class="op">=</span>koperasi_demo <span class="ex">python</span> <span class="at">-m</span> scripts.seed <span class="at">--reset</span> <span class="at">--yes</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-m</span> scripts.seed <span class="at">--reset</span> <span class="at">--yes</span> <span class="at">--days</span> 70 <span class="at">--per-day</span> 12</span></code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Opsi</th>
+<th>Bawaan</th>
+<th>Arti</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>--reset</code></td>
+<td>—</td>
+<td>Menghapus data toko lama sebelum mengisi data baru</td>
+</tr>
+<tr class="even">
+<td><code>--yes</code></td>
+<td>—</td>
+<td>Melewati pertanyaan konfirmasi reset</td>
+</tr>
+<tr class="odd">
+<td><code>--days</code></td>
+<td>70</td>
+<td>Panjang riwayat simulasi dalam hari</td>
+</tr>
+<tr class="even">
+<td><code>--per-day</code></td>
+<td>12</td>
+<td>Rata-rata jumlah transaksi penjualan per hari kerja; akhir pekan otomatis lebih ramai</td>
+</tr>
+</tbody>
+</table></div>
+<p>Isi data demo: lima pengguna (lihat <a href="#doc-03-peran-dan-hak-akses">Peran dan Hak Akses</a>), 5 kategori, 25 produk dengan barcode EAN-13, 3 supplier, 10 anggota, restock awal dan restock mingguan setiap Senin, serta sekitar 1.000 transaksi penjualan dengan pola yang dapat ditemukan oleh AI engine. Seluruh transaksi dibuat melalui fungsi layanan yang sama dengan API, sehingga stok, HPP, pergerakan stok, dan audit trail tetap konsisten. Hasil seed selalu sama karena pembangkit bilangan acak memakai nilai awal tetap.</p>
+<p>Seed ke server MongoDB jarak jauh membutuhkan beberapa menit karena setiap penjualan dijalankan dalam transaksi tersendiri. Nilai <code>--per-day</code> dapat diperkecil untuk mempercepat proses. Di akhir proses, seed memasukkan job perhitungan AI dengan pemicu <code>SEED</code>.</p>
+<h2 id="94-ai-engine">9.4 AI engine</h2>
+<div class="sourceCode" id="cb16"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ai-engine</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install <span class="at">-r</span> requirements-dev.txt</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-m</span> engine <span class="at">--once</span>               <span class="co"># menghitung satu kali lalu berhenti</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-m</span> engine                      <span class="co"># berjalan terus sebagai worker</span></span></code></pre></div>
+<p>Pada lingkungan pengembangan, <code>MONGODB_URI</code>, <code>MONGODB_DB</code>, dan variabel <code>AI_*</code> dibaca otomatis dari <code>ai-engine/.env</code> bila berkas tersebut ada, atau dari <code>backend/.env</code> bila tidak ada. Dengan demikian, engine dan backend dipastikan memakai basis data yang sama tanpa pengaturan tambahan. Variabel lain di dalam berkas tersebut, seperti <code>JWT_SECRET</code>, tidak ikut dibaca.</p>
+<p>Variabel lingkungan yang sudah di-set pada terminal selalu diutamakan daripada isi berkas <code>.env</code>. Nilai yang salah pada terminal harus dihapus terlebih dahulu dengan <code>Remove-Item Env:MONGODB_URI</code> (PowerShell) atau <code>unset MONGODB_URI</code> (bash). Engine memeriksa format URI sebelum terhubung dan menampilkan sumber konfigurasi yang dipakai tanpa menampilkan isi URI.</p>
+<h2 id="95-frontend">9.5 Frontend</h2>
+<p>Langkah yang sama berlaku untuk <code>frontend-kasir</code> dan <code>frontend-admin</code>:</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> frontend-kasir                     <span class="co"># atau frontend-admin</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> install</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> .env.example .env.local            <span class="co"># VITE_API_URL=http://localhost:8000/api/v1</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> run dev</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> run build                         <span class="co"># pemeriksaan tipe (vue-tsc) + build produksi</span></span></code></pre></div>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Aplikasi</th>
+<th>Alamat pengembangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Kasir</td>
+<td><code>http://localhost:5173</code></td>
+</tr>
+<tr class="even">
+<td>Admin</td>
+<td><code>http://localhost:5174</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>Fitur kamera dapat diuji di <code>localhost</code>. Untuk menguji dari ponsel pada jaringan yang sama, aplikasi harus diakses melalui HTTPS; tanpa HTTPS, peramban ponsel menolak akses kamera.</p>
+<h2 id="96-konvensi-kode">9.6 Konvensi kode</h2>
+<p><strong>Backend.</strong></p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Kebutuhan</th>
+<th>Cara yang dipakai</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Koneksi basis data</td>
+<td><code>Depends(get_db)</code> dan <code>Depends(get_client)</code> dari <code>app.api.deps</code></td>
+</tr>
+<tr class="even">
+<td>Pengecekan peran</td>
+<td><code>Depends(require_roles(Role.X, ...))</code> pada router</td>
+</tr>
+<tr class="odd">
+<td>Galat bisnis</td>
+<td><code>raise AppError(status, "KODE", "pesan", details)</code></td>
+</tr>
+<tr class="even">
+<td>Respons</td>
+<td><code>ok(data, "pesan")</code> atau <code>paginated(items, page, total)</code></td>
+</tr>
+<tr class="odd">
+<td>Pagination</td>
+<td><code>page: PageParams = Depends()</code></td>
+</tr>
+<tr class="even">
+<td>Waktu</td>
+<td>Utilitas di <code>app.utils.time</code> (<code>utcnow</code>, <code>today_wib</code>, <code>wib_range_to_utc</code>)</td>
+</tr>
+<tr class="odd">
+<td>ID dari URL atau query</td>
+<td><code>parse_object_id</code>, <code>optional_object_id</code> di <code>app.utils.objectid</code></td>
+</tr>
+<tr class="even">
+<td>Pencarian teks</td>
+<td><code>search_regex(term)</code> dari <code>app.utils.text</code> (input pengguna di-<em>escape</em>)</td>
+</tr>
+<tr class="odd">
+<td>Audit</td>
+<td><code>audit.log(db, user, AuditAction.X, AuditModule.Y, ref_id, "deskripsi", session=session)</code></td>
+</tr>
+<tr class="even">
+<td>Transaksi basis data</td>
+<td><code>run_in_transaction(db.client, callback)</code> dari <code>app.db.transaction</code></td>
+</tr>
+<tr class="odd">
+<td>Skema</td>
+<td>Turunan <code>CamelModel</code> atau <code>DocModel</code> dari <code>app.schemas.common</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>Router baru didaftarkan di <code>app/api/v1/router.py</code>.</p>
+<p><strong>Frontend.</strong></p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Aturan</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Komponen dasar</td>
+<td>Memakai komponen di <code>src/components/ui</code> (shadcn-vue) sebelum membuat komponen sendiri; komponen shadcn baru ditambahkan dengan <code>npx shadcn-vue@latest add &lt;nama&gt;</code></td>
+</tr>
+<tr class="even">
+<td>Ikon</td>
+<td><code>@lucide/vue</code>, nama komponen berakhiran <code>Icon</code></td>
+</tr>
+<tr class="odd">
+<td>Warna</td>
+<td>Hanya token tema (<code>bg-primary</code>, <code>text-muted-foreground</code>, <code>border-border</code>, dan sejenisnya); warna mentah seperti <code>bg-white</code> merusak mode gelap</td>
+</tr>
+<tr class="even">
+<td>Notifikasi</td>
+<td><code>vue-sonner</code> melalui composable <code>useToast</code></td>
+</tr>
+<tr class="odd">
+<td>Berkas bersama</td>
+<td><code>style.css</code>, <code>useTheme.ts</code>, <code>useScannerInput.ts</code>, <code>lib/utils.ts</code>, <code>utils/format.ts</code>, komponen <code>common</code> bersama, dan isi <code>components/ui</code> yang sama harus identik di kedua aplikasi</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="97-pemeriksaan-sebelum-menggabungkan-perubahan">9.7 Pemeriksaan sebelum menggabungkan perubahan</h2>
+<div class="sourceCode" id="cb18"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># backend</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> backend <span class="kw">&amp;&amp;</span> <span class="ex">ruff</span> check . <span class="kw">&amp;&amp;</span> <span class="ex">ruff</span> format <span class="at">--check</span> . <span class="kw">&amp;&amp;</span> <span class="ex">pytest</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a><span class="co"># AI engine</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ai-engine <span class="kw">&amp;&amp;</span> <span class="ex">ruff</span> check . <span class="kw">&amp;&amp;</span> <span class="ex">pytest</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a><span class="co"># frontend (keduanya)</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a><span class="ex">npm</span> run build</span></code></pre></div>
+<p>Perubahan yang gagal pada salah satu pemeriksaan di atas tidak digabungkan ke cabang utama. Berkas <code>package-lock.json</code> pada kedua frontend wajib ikut di-commit agar build Docker memakai versi paket yang sama persis.</p>
+<div id="doc-10-deployment" class="doc-anchor"></div>
+
+<h1 id="10-deployment">10. Deployment</h1>
+<h2 id="101-topologi">10.1 Topologi</h2>
+<p>Sistem di-deploy sebagai satu stack Docker Compose berisi empat container. MongoDB tidak termasuk dalam stack; backend dan AI engine terhubung ke server MongoDB yang sudah tersedia melalui <code>MONGODB_URI</code>.</p>
+<pre class="text"><code> pengguna ──HTTPS──► reverse proxy (Nginx Proxy Manager / Traefik / Caddy)
+                        │ kasir.&lt;domain&gt;  → host:8081
+                        │ admin.&lt;domain&gt;  → host:8082
+                        ▼
+             ┌──────────── stack &quot;koperasi&quot; ─────────────┐
+             │ kasir  (nginx :80) ─┐                      │
+             │ admin  (nginx :80) ─┴─ /api/ ─► backend    │
+             │                              (uvicorn :8000,│
+             │                               tidak dibuka) │
+             │ ai-engine (worker, tanpa port)             │
+             └──────────────────────┬─────────────────────┘
+                                    ▼
+                         MongoDB replica set (server terpisah)</code></pre>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Service</th>
+<th>Image dasar</th>
+<th>Port</th>
+<th>Pemeriksaan kesehatan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>backend</code></td>
+<td><code>python:3.11-slim</code>, pengguna non-root</td>
+<td>8000, hanya jaringan internal</td>
+<td><code>GET /health</code></td>
+</tr>
+<tr class="even">
+<td><code>ai-engine</code></td>
+<td><code>python:3.11-slim</code></td>
+<td>tidak ada</td>
+<td>Denyut di <code>ai_engine_status</code> tidak lebih dari tiga menit</td>
+</tr>
+<tr class="odd">
+<td><code>kasir</code></td>
+<td>build <code>node:22-alpine</code>, disajikan <code>nginx:stable-alpine</code></td>
+<td><code>KASIR_PORT</code> (bawaan 8081)</td>
+<td>—</td>
+</tr>
+<tr class="even">
+<td><code>admin</code></td>
+<td>build <code>node:22-alpine</code>, disajikan <code>nginx:stable-alpine</code></td>
+<td><code>ADMIN_PORT</code> (bawaan 8082)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table></div>
+<p>Keputusan rancangan pada topologi ini:</p>
+<ul>
+<li><strong>API pada domain yang sama.</strong> Frontend memanggil <code>/api/v1</code> pada domainnya sendiri, lalu nginx di dalam container meneruskan permintaan ke <code>backend:8000</code>. Akibatnya CORS tidak diperlukan dan image frontend tidak perlu dibangun ulang apabila domain berubah.</li>
+<li><strong>Backend tidak dibuka ke luar.</strong> Port 8000 hanya dapat dijangkau dari jaringan internal stack, sehingga Swagger UI juga tidak dapat diakses dari internet.</li>
+<li><strong>Rahasia di luar repositori.</strong> <code>MONGODB_URI</code> dan <code>JWT_SECRET</code> hanya diisi pada pengaturan environment stack, tidak ditulis di repositori maupun di dalam image.</li>
+<li><strong>AI engine dapat dihentikan kapan saja.</strong> Aplikasi tetap berjalan dengan hasil analisis terakhir.</li>
+</ul>
+<p>Nginx pada kedua frontend menangani <em>fallback</em> SPA (seluruh rute diarahkan ke <code>index.html</code>), cache jangka panjang untuk aset ber-hash, dan header keamanan (<code>X-Content-Type-Options</code>, <code>X-Frame-Options</code>, <code>Referrer-Policy</code>). Uvicorn dijalankan dengan <code>--proxy-headers</code> agar alamat IP asli pengguna tercatat di audit trail.</p>
+<h2 id="102-variabel-lingkungan-stack">10.2 Variabel lingkungan stack</h2>
+<p>Daftar lengkap tersedia di <code>stack.env.example</code>.</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Variabel</th>
+<th>Wajib</th>
+<th>Bawaan</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>MONGODB_URI</code></td>
+<td>ya</td>
+<td>—</td>
+<td>URI replica set; password di-<em>URL-encode</em></td>
+</tr>
+<tr class="even">
+<td><code>MONGODB_DB</code></td>
+<td>tidak</td>
+<td><code>koperasi_demo</code></td>
+<td>Dipakai bersama oleh backend dan AI engine</td>
+</tr>
+<tr class="odd">
+<td><code>JWT_SECRET</code></td>
+<td>ya</td>
+<td>—</td>
+<td>Minimal 32 karakter; mengganti nilainya membuat seluruh sesi aktif berakhir</td>
+</tr>
+<tr class="even">
+<td><code>JWT_EXPIRE_MINUTES</code></td>
+<td>tidak</td>
+<td>480</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><code>CORS_ORIGINS</code></td>
+<td>tidak</td>
+<td>kosong</td>
+<td>Tidak diperlukan karena API berada pada domain yang sama</td>
+</tr>
+<tr class="even">
+<td><code>KASIR_PORT</code>, <code>ADMIN_PORT</code></td>
+<td>tidak</td>
+<td>8081, 8082</td>
+<td>Port host yang dituju reverse proxy</td>
+</tr>
+<tr class="odd">
+<td><code>KASIR_BIND</code>, <code>ADMIN_BIND</code></td>
+<td>tidak</td>
+<td><code>0.0.0.0</code></td>
+<td>Diisi <code>127.0.0.1</code> bila reverse proxy berjalan pada host yang sama, agar aplikasi tidak dapat dibuka tanpa HTTPS</td>
+</tr>
+<tr class="even">
+<td><code>AI_INTERVAL_MINUTES</code></td>
+<td>tidak</td>
+<td>15</td>
+<td>Lihat <a href="#doc-07-ai-engine">AI Engine</a></td>
+</tr>
+<tr class="odd">
+<td><code>AI_LEAD_TIME_DAYS</code></td>
+<td>tidak</td>
+<td>3</td>
+<td></td>
+</tr>
+<tr class="even">
+<td><code>AI_REVIEW_DAYS</code></td>
+<td>tidak</td>
+<td>7</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><code>AI_SERVICE_LEVEL</code></td>
+<td>tidak</td>
+<td>0,95</td>
+<td></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="103-persiapan-sebelum-deployment">10.3 Persiapan sebelum deployment</h2>
+<ol type="1">
+<li><p><code>npm install</code> dan <code>npm run build</code> pada kedua frontend harus berhasil di komputer pengembang. Build di Docker menjalankan perintah yang sama.</p></li>
+<li><p>Berkas <code>package-lock.json</code> kedua frontend di-commit, sehingga Docker memakai <code>npm ci</code> dengan versi paket yang identik.</p></li>
+<li><p>Perubahan di-push ke cabang yang akan di-deploy, misalnya <code>main</code>.</p></li>
+<li><p>Server Docker harus dapat menjangkau server MongoDB. Pemeriksaan dari server:</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> run <span class="at">--rm</span> mongo:7 mongosh <span class="st">&quot;&lt;MONGODB_URI&gt;&quot;</span> <span class="at">--eval</span> <span class="st">&#39;db.adminCommand({ping:1}); rs.status().ok&#39;</span></span></code></pre></div>
+<p>Kedua perintah harus menghasilkan <code>1</code>.</p></li>
+</ol>
+<h2 id="104-membuat-stack-di-portainer">10.4 Membuat stack di Portainer</h2>
+<p>Menu <strong>Stacks → Add stack</strong>:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Isian</th>
+<th>Nilai</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Name</td>
+<td><code>koperasi</code></td>
+</tr>
+<tr class="even">
+<td>Build method</td>
+<td>Repository</td>
+</tr>
+<tr class="odd">
+<td>Repository URL</td>
+<td>URL repositori Git</td>
+</tr>
+<tr class="even">
+<td>Repository reference</td>
+<td><code>refs/heads/main</code></td>
+</tr>
+<tr class="odd">
+<td>Compose path</td>
+<td><code>docker-compose.yml</code></td>
+</tr>
+<tr class="even">
+<td>Authentication</td>
+<td>Diaktifkan untuk repositori privat: username dan <em>personal access token</em> dengan akses baca</td>
+</tr>
+<tr class="odd">
+<td>Environment variables</td>
+<td>Mode lanjutan, lalu tempel isi <code>stack.env.example</code> yang sudah diisi nilai sebenarnya</td>
+</tr>
+</tbody>
+</table></div>
+<p>Build pertama membutuhkan sekitar 3–8 menit. Server dengan RAM di bawah 2 GB berisiko kehabisan memori saat build Vite. Setelah selesai, keempat container harus berstatus <em>healthy</em>; AI engine membutuhkan sekitar satu menit sebelum denyut pertamanya tercatat.</p>
+<p>Tanpa Portainer, stack yang sama dapat dijalankan dengan:</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> stack.env.example .env          <span class="co"># isi nilai sebenarnya; berkas ini tidak di-commit</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="ex">docker</span> compose up <span class="at">-d</span> <span class="at">--build</span></span></code></pre></div>
+<h2 id="105-domain-dan-https">10.5 Domain dan HTTPS</h2>
+<p>DNS <code>kasir.&lt;domain&gt;</code> dan <code>admin.&lt;domain&gt;</code> diarahkan ke IP server, kemudian reverse proxy dikonfigurasi:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Domain</th>
+<th>Tujuan</th>
+<th>Opsi</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>kasir.&lt;domain&gt;</code></td>
+<td><code>http://&lt;ip-server&gt;:8081</code></td>
+<td>Sertifikat Let's Encrypt, paksa HTTPS, HTTP/2</td>
+</tr>
+<tr class="even">
+<td><code>admin.&lt;domain&gt;</code></td>
+<td><code>http://&lt;ip-server&gt;:8082</code></td>
+<td>Sama</td>
+</tr>
+</tbody>
+</table></div>
+<p>Apabila Nginx Proxy Manager berjalan sebagai container pada server yang sama, container tersebut dapat dimasukkan ke jaringan stack (<code>koperasi_default</code>) dan diarahkan ke <code>kasir:80</code> serta <code>admin:80</code>; bagian <code>ports</code> pada compose kemudian dapat dihapus. Untuk Traefik, bagian <code>ports</code> dihapus dan label router ditambahkan pada service <code>kasir</code> dan <code>admin</code>.</p>
+<p>HTTPS bukan sekadar anjuran: fitur kamera untuk pemindaian barcode hanya dapat berjalan pada halaman HTTPS.</p>
+<h2 id="106-pengisian-data-awal">10.6 Pengisian data awal</h2>
+<p>Melalui konsol container backend (Portainer: <strong>Containers → koperasi-backend-1 → Console</strong>):</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-m</span> scripts.seed <span class="at">--reset</span> <span class="at">--yes</span>       <span class="co"># data demo lengkap</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> <span class="at">-m</span> scripts.create_initial_users     <span class="co"># hanya akun awal, tanpa data demo</span></span></code></pre></div>
+<p>Setelah seed, AI engine memproses job perhitungan dalam sekitar sepuluh detik. Kemajuannya dapat dipantau pada menu <strong>Admin → AI Engine</strong> atau pada log container <code>ai-engine</code>.</p>
+<h2 id="107-pembaruan">10.7 Pembaruan</h2>
+<p>Setelah perubahan di-push ke cabang yang di-deploy, stack diperbarui melalui <strong>Pull and redeploy</strong> dengan opsi build ulang. Fitur <em>GitOps updates</em> pada Portainer dapat diaktifkan agar redeploy berjalan otomatis setiap ada commit baru.</p>
+<h2 id="108-penanganan-masalah">10.8 Penanganan masalah</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Gejala</th>
+<th>Penyebab umum</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Build gagal pada <code>npm run build</code></td>
+<td>Galat TypeScript; perlu diperbaiki dengan menjalankan build yang sama di komputer pengembang</td>
+</tr>
+<tr class="even">
+<td>Build gagal pada <code>npm ci</code></td>
+<td><code>package-lock.json</code> tidak sesuai dengan <code>package.json</code></td>
+</tr>
+<tr class="odd">
+<td>Login menghasilkan galat jaringan atau 502</td>
+<td>Container backend mati atau belum <em>healthy</em></td>
+</tr>
+<tr class="even">
+<td>Log backend <code>ServerSelectionTimeoutError</code> atau <code>not primary</code></td>
+<td>MongoDB tidak terjangkau, URI salah, atau password belum di-<em>URL-encode</em></td>
+</tr>
+<tr class="odd">
+<td>Log backend tentang panjang <code>jwt_secret</code></td>
+<td><code>JWT_SECRET</code> kurang dari 32 karakter</td>
+</tr>
+<tr class="even">
+<td>Muat ulang halaman selain beranda menghasilkan 404</td>
+<td>Konfigurasi nginx tidak ikut tersalin</td>
+</tr>
+<tr class="odd">
+<td>Saran produk atau prediksi stok kosong</td>
+<td>AI engine belum pernah menghitung, atau <code>MONGODB_DB</code> pada engine berbeda dengan backend; status dapat diperiksa di <strong>Admin → AI Engine</strong></td>
+</tr>
+<tr class="even">
+<td>Kamera tidak dapat dibuka</td>
+<td>Halaman tidak diakses melalui HTTPS, atau izin kamera ditolak di peramban</td>
+</tr>
+<tr class="odd">
+<td>Alamat IP di audit trail selalu IP proxy</td>
+<td>Reverse proxy tidak mengirim header <code>X-Forwarded-For</code></td>
+</tr>
+</tbody>
+</table></div>
+<div id="doc-11-keamanan-dan-pengujian" class="doc-anchor"></div>
+
+<h1 id="11-keamanan-dan-pengujian">11. Keamanan dan Pengujian</h1>
+<h2 id="111-autentikasi">11.1 Autentikasi</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Aspek</th>
+<th>Penerapan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Penyimpanan password</td>
+<td>Hash bcrypt dengan <em>cost</em> 12. Proses hash dijalankan di luar <em>event loop</em> agar tidak menghambat permintaan lain</td>
+</tr>
+<tr class="even">
+<td>Panjang password</td>
+<td>Minimal 8 karakter, maksimal 72 karakter (batas bcrypt)</td>
+</tr>
+<tr class="odd">
+<td>Token sesi</td>
+<td>JWT HS256 yang ditandatangani <code>JWT_SECRET</code> (minimal 32 karakter), berlaku 480 menit secara bawaan</td>
+</tr>
+<tr class="even">
+<td>Pesan login gagal</td>
+<td>Username yang tidak ada dan password yang salah menghasilkan respons yang sama (401 <code>INVALID_CREDENTIALS</code>), disertai verifikasi hash tiruan agar waktu respons tidak membedakan keduanya</td>
+</tr>
+<tr class="odd">
+<td>Pemeriksaan status</td>
+<td>Status aktif dan peran pengguna dibaca ulang dari basis data pada setiap permintaan. Akun yang dinonaktifkan langsung ditolak walaupun token sesi masih berlaku, dan perubahan peran langsung berlaku tanpa perlu login ulang</td>
+</tr>
+<tr class="even">
+<td>Pemisahan aplikasi</td>
+<td>Akun kasir tidak dapat masuk ke panel admin, dan sebaliknya</td>
+</tr>
+</tbody>
+</table></div>
+<p>Token disimpan di <code>localStorage</code> peramban dan dikirim melalui header <code>Authorization</code>. Konsekuensinya, perlindungan dari <em>cross-site scripting</em> (XSS) menjadi penting. Vue secara bawaan meng-<em>escape</em> seluruh teks yang ditampilkan, dan kode kedua aplikasi tidak memakai <code>v-html</code> sama sekali.</p>
+<h2 id="112-otorisasi-dan-perlindungan-data">11.2 Otorisasi dan perlindungan data</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Aspek</th>
+<th>Penerapan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Kontrol akses berbasis peran</td>
+<td>Setiap endpoint dilindungi <code>require_roles</code>. Pembatasan menu pada frontend hanya bersifat tampilan</td>
+</tr>
+<tr class="even">
+<td>Kepemilikan data</td>
+<td>KASIR hanya dapat membuka transaksi yang dibuat oleh akun kasir yang sedang login</td>
+</tr>
+<tr class="odd">
+<td>Penyaringan field</td>
+<td>Harga pokok (<code>costPrice</code>, <code>lastPurchasePrice</code>) tidak dikirim kepada KASIR</td>
+</tr>
+<tr class="even">
+<td>Perlindungan akun yang sedang dipakai</td>
+<td>ADMIN tidak dapat menonaktifkan atau mengubah peran akun yang sedang dipakai, sehingga sistem tidak dapat kehilangan seluruh administrator secara tidak sengaja</td>
+</tr>
+<tr class="odd">
+<td>Validasi input</td>
+<td>Seluruh body dan parameter divalidasi oleh Pydantic dengan batas panjang, rentang angka, dan pola (telepon, email, username)</td>
+</tr>
+<tr class="even">
+<td>Validasi ID</td>
+<td>ID dari URL yang tidak valid menghasilkan 404, ID pada query atau body yang tidak valid menghasilkan 422</td>
+</tr>
+<tr class="odd">
+<td>Pencarian teks</td>
+<td>Kata kunci pengguna di-<em>escape</em> sebelum dipakai sebagai ekspresi reguler MongoDB, sehingga tidak dapat disalahgunakan untuk query berat</td>
+</tr>
+<tr class="even">
+<td>Integritas transaksi</td>
+<td>Harga dan total dihitung ulang di server; stok dikurangi dengan pembaruan bersyarat di dalam transaksi basis data</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="113-audit-trail">11.3 Audit trail</h2>
+<p>Aksi yang dicatat: login, logout, pembuatan dan perubahan data master, aktivasi dan penonaktifan, reset password, penjualan, restock, serta permintaan hitung ulang AI. Setiap entri menyimpan identitas dan peran pelaku, jenis aksi, modul, dokumen terkait, keterangan, alamat IP, dan waktu. Pencatatan audit untuk penjualan dan restock berada di dalam transaksi yang sama dengan datanya, sehingga tidak mungkin terdapat transaksi tanpa jejak audit atau sebaliknya. Audit trail hanya dapat dibaca oleh ADMIN dan tidak memiliki endpoint untuk mengubah atau menghapus entri.</p>
+<h2 id="114-keamanan-deployment">11.4 Keamanan deployment</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Aspek</th>
+<th>Penerapan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Rahasia</td>
+<td><code>MONGODB_URI</code> dan <code>JWT_SECRET</code> hanya berada di variabel lingkungan; berkas <code>.env</code> dan <code>stack.env</code> dikecualikan dari Git</td>
+</tr>
+<tr class="even">
+<td>Permukaan serangan</td>
+<td>Port backend tidak dibuka ke luar; Swagger UI tidak dapat diakses dari internet</td>
+</tr>
+<tr class="odd">
+<td>Transport</td>
+<td>HTTPS melalui reverse proxy dengan sertifikat Let's Encrypt</td>
+</tr>
+<tr class="even">
+<td>Header HTTP</td>
+<td><code>X-Content-Type-Options: nosniff</code>, <code>X-Frame-Options: SAMEORIGIN</code>, <code>Referrer-Policy: strict-origin-when-cross-origin</code></td>
+</tr>
+<tr class="odd">
+<td>Container</td>
+<td>Backend berjalan sebagai pengguna non-root; image produksi tidak memuat alat pengembangan</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="115-keterbatasan-keamanan-yang-diketahui">11.5 Keterbatasan keamanan yang diketahui</h2>
+<ul>
+<li>Belum ada pembatasan laju (<em>rate limiting</em>) pada endpoint login. Perlindungan tambahan dapat dipasang pada reverse proxy.</li>
+<li>Token tidak dapat dicabut satu per satu sebelum kedaluwarsa, kecuali dengan menonaktifkan akun atau mengganti <code>JWT_SECRET</code> (yang mengakhiri seluruh sesi).</li>
+<li>Password awal akun demo (<code>koperasi123</code>) harus diganti sebelum sistem dipakai secara nyata.</li>
+<li>Kredensial basis data yang pernah tersebar di luar pengelola sistem harus segera diganti.</li>
+</ul>
+<h2 id="116-pengujian-otomatis">11.6 Pengujian otomatis</h2>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Komponen</th>
+<th>Kerangka</th>
+<th>Cakupan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Backend</td>
+<td>pytest, pytest-asyncio</td>
+<td>63 kasus uji: unit (utilitas inti, rumus HPP) dan integrasi melalui HTTP terhadap basis data uji</td>
+</tr>
+<tr class="even">
+<td>AI engine</td>
+<td>pytest</td>
+<td>12 kasus uji: Apriori, model forecasting, saran restock, dan siklus worker</td>
+</tr>
+<tr class="odd">
+<td>Frontend</td>
+<td><code>vue-tsc</code></td>
+<td>Pemeriksaan tipe TypeScript seluruh komponen dan halaman pada setiap <code>npm run build</code></td>
+</tr>
+</tbody>
+</table></div>
+<p>Pokok skenario yang diuji pada backend:</p>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Area</th>
+<th>Skenario</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Autentikasi</td>
+<td>Login berhasil dan format respons; password salah dan pengguna tidak ada sama-sama 401; login ke aplikasi yang salah 403; akun nonaktif 403; token rusak atau tidak ada 401; akun yang dinonaktifkan langsung terkunci walaupun token masih berlaku; perubahan peran langsung berlaku; ganti password</td>
+</tr>
+<tr class="even">
+<td>Pengguna</td>
+<td>Pembuatan, validasi, duplikasi, pagination dan pencarian, reset password, aktivasi dan penonaktifan, larangan menonaktifkan akun yang sedang dipakai, hanya ADMIN</td>
+</tr>
+<tr class="odd">
+<td>Anggota</td>
+<td>CRUD, tanggal bergabung bawaan, validasi telepon, pencarian untuk kasir, kasir boleh mendaftarkan tetapi tidak boleh mengubah, penomoran otomatis melanjutkan data lama</td>
+</tr>
+<tr class="even">
+<td>Katalog</td>
+<td>CRUD kategori dan supplier, produk baru selalu mulai dari stok nol, validasi dan duplikasi SKU/barcode, kasir tidak melihat harga pokok dan produk nonaktif, filter status stok, pencarian barcode persis</td>
+</tr>
+<tr class="odd">
+<td>Transaksi</td>
+<td>Restock menambah stok dan menghitung HPP rata-rata bergerak; checkout berhasil; stok kurang tidak mengubah data apa pun; <em>rollback</em> ketika stok berubah di tengah transaksi; aturan pembayaran tunai dan QRIS; kasir hanya dapat membuka transaksi yang dibuat oleh akun kasir tersebut</td>
+</tr>
+<tr class="even">
+<td>Laporan dan dashboard</td>
+<td>Riwayat transaksi OWNER, ringkasan per peran, laporan stok, filter audit trail berdasarkan tanggal WIB</td>
+</tr>
+<tr class="odd">
+<td>Hak akses</td>
+<td>Matriks akses setiap peran terhadap endpoint</td>
+</tr>
+<tr class="even">
+<td>Insight</td>
+<td>Saran kasir berdasarkan isi keranjang, akses aturan untuk OWNER dan prediksi untuk LOGISTIK, hitung ulang hanya ADMIN dan tidak dapat menumpuk</td>
+</tr>
+</tbody>
+</table></div>
+<p>Pengujian backend memakai basis data yang ditentukan <code>TEST_MONGODB_DB</code>. Basis data tersebut dihapus pada setiap kasus uji, sehingga namanya wajib berbeda dari basis data kerja dan sebaiknya unik untuk setiap pengembang.</p>
+<p>Selain pengujian otomatis, keseluruhan alur analisis telah diuji dari ujung ke ujung: data demo di-seed, AI engine menjalankan satu putaran perhitungan, lalu endpoint backend membaca hasilnya. Pola yang ditanam pada data demo berhasil ditemukan kembali.</p>
+
+    </article>
+    <footer class="footer">Dibangun dari berkas Markdown di folder <code>docs/</code> pada 30-09-2026.</footer>
+  </main>
+</div>
+<script>
+(function(){
+  var root=document.documentElement;
+  function stored(){try{return localStorage.getItem('docs-theme')}catch(e){return null}}
+  function save(v){try{localStorage.setItem('docs-theme',v)}catch(e){}}
+  var t=stored(); if(t){root.setAttribute('data-theme',t)}
+  document.getElementById('theme-btn').addEventListener('click',function(){
+    var dark=root.getAttribute('data-theme')==='dark'||(!root.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme: dark)').matches);
+    var next=dark?'light':'dark'; root.setAttribute('data-theme',next); save(next);
+  });
+  document.getElementById('print-btn').addEventListener('click',function(){window.print()});
+  var body=document.body;
+  document.getElementById('menu-btn').addEventListener('click',function(){body.classList.toggle('nav-open')});
+  document.querySelectorAll('.toc a').forEach(function(a){a.addEventListener('click',function(){body.classList.remove('nav-open')})});
+  document.querySelector('main').addEventListener('click',function(){body.classList.remove('nav-open')});
+  var links={}; document.querySelectorAll('.toc a').forEach(function(a){links[a.getAttribute('href').slice(1)]=a});
+  var heads=[].slice.call(document.querySelectorAll('.content h1[id],.content h2[id]'));
+  var current=null;
+  function spy(){
+    var y=window.scrollY+80, id=null;
+    for(var i=0;i<heads.length;i++){ if(heads[i].offsetTop<=y){id=heads[i].id}else{break} }
+    if(id!==current){ if(current&&links[current])links[current].classList.remove('active');
+      current=id; if(id&&links[id]){links[id].classList.add('active');
+        var s=document.querySelector('.sidebar'), a=links[id];
+        if(a.offsetTop<s.scrollTop||a.offsetTop>s.scrollTop+s.clientHeight-60){s.scrollTop=a.offsetTop-120}}}
+  }
+  window.addEventListener('scroll',spy,{passive:true}); spy();
+})();
+</script>
+</body>
+</html>
