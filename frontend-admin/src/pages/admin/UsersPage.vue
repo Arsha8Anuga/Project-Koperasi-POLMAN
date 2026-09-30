@@ -164,7 +164,8 @@ async function toggle() {
       <FilterToggle v-model="list.filters.isActive" :options="activeOptions" label="Status" />
     </div>
     <ErrorAlert v-if="list.error.value" :message="list.error.value" class="m-4 w-auto" />
-    <DataTable :columns="columns" :rows="list.rows.value" :loading="list.loading.value" row-key="id" empty="Tidak ada pengguna">
+    <DataTable :columns="columns" :rows="list.rows.value"
+      :start-index="(list.meta.value.page - 1) * list.meta.value.limit" :loading="list.loading.value" row-key="id" empty="Tidak ada pengguna">
       <template #cell-name="{ row }">
         <p class="flex items-center gap-1.5 font-semibold">
           {{ row.name }} <Badge v-if="isSelf(row)" variant="outline">Anda</Badge>

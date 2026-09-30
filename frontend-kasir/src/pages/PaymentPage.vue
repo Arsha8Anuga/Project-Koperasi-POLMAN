@@ -18,6 +18,7 @@ import { salesApi } from '@/services/salesApi'
 import { useCartStore } from '@/stores/cart'
 import type { MemberLookup as Member, PaymentMethod, SaleRequest, StockIssue } from '@/types'
 import { formatRupiah } from '@/utils/format'
+import ProductImage from '@/components/product/ProductImage.vue'
 
 const cart = useCartStore()
 const router = useRouter()
@@ -88,15 +89,16 @@ async function pay(amountPaid?: number) {
       </Card>
 
       <div v-else class="grid items-start gap-6 lg:grid-cols-[1fr_26rem]">
-        <Card class="gap-0 py-0">
+        <Card class="gap-0 rounded-2xl py-0">
           <CardHeader class="flex items-center justify-between border-b pt-4 pb-4!">
             <CardTitle>Ringkasan pesanan</CardTitle>
             <Badge variant="soft">{{ cart.totalQty }} barang</Badge>
           </CardHeader>
           <CardContent>
             <ul class="divide-y">
-              <li v-for="item in cart.items" :key="item.productId" class="flex items-center justify-between gap-4 py-3">
-                <div class="min-w-0">
+              <li v-for="item in cart.items" :key="item.productId" class="flex items-center gap-3 py-3">
+                <ProductImage :src="item.imageUrl" :name="item.name" class="size-11 shrink-0 rounded-lg" text-class="text-xs" />
+                <div class="min-w-0 flex-1">
                   <p class="truncate text-sm font-semibold">{{ item.name }}</p>
                   <p class="num text-xs text-muted-foreground">{{ item.quantity }} × {{ formatRupiah(item.price) }}</p>
                 </div>

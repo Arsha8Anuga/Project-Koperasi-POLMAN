@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import { errorMessage } from '@/services/apiClient'
 import { useAuthStore } from '@/stores/auth'
+import { BRAND } from '@/utils/brand'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -51,7 +52,7 @@ const roles = [
       <div class="pointer-events-none absolute -top-40 -right-40 size-[28rem] rounded-full bg-sidebar-primary/25 blur-3xl" />
       <div class="relative flex items-center gap-3">
         <BrandMark />
-        <p class="text-lg font-bold text-sidebar-accent-foreground">Toko Koperasi</p>
+        <p class="text-lg font-bold text-sidebar-accent-foreground">{{ BRAND.name }}</p>
       </div>
       <div class="relative mt-auto max-w-md">
         <h2 class="text-3xl leading-tight font-bold text-sidebar-accent-foreground">Satu panel untuk seluruh pengelolaan toko.</h2>

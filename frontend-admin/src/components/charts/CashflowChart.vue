@@ -6,6 +6,7 @@ import { useChartTheme } from '@/composables/useChartTheme'
 import type { CashflowReport } from '@/types/api'
 import { formatRupiah } from '@/utils/format'
 import { compactRupiah, periodLabel } from './setup'
+import './setup'
 
 const props = defineProps<{ report: CashflowReport }>()
 const t = useChartTheme()

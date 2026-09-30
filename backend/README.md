@@ -1,56 +1,32 @@
-# Backend Koperasi (FastAPI + MongoDB)
+# Dokumentasi Sistem Toko Koperasi POLMAN
 
-## Menjalankan
+Dokumentasi ini menjelaskan Sistem Toko Koperasi POLMAN secara menyeluruh: tujuan, arsitektur, hak akses, fitur, model data, antarmuka pemrograman (API), mesin analisis (AI engine), pemindaian barcode, cara menjalankan untuk pengembangan, cara deployment, serta aspek keamanan dan pengujian.
 
-```bash
-cd backend
-python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -r requirements-dev.txt                    # runtime + pytest + ruff (image Docker hanya requirements.txt)
-cp .env.example .env                                   # isi MONGODB_URI, JWT_SECRET, TEST_MONGODB_DB
-python -m scripts.create_initial_users                 # owner / logistik / admin / kasir1, password: koperasi123
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
+Dokumentasi tersedia dalam dua bentuk dengan isi yang sama:
 
-Data demo (kategori, 25 produk ber-barcode, supplier, anggota, restock mingguan + ±1.000 penjualan berpola selama 10 minggu; butuh beberapa menit):
-
-```bash
-python -m scripts.seed --reset                         # ke MONGODB_DB di .env (minta konfirmasi)
-MONGODB_DB=koperasi_demo python -m scripts.seed --reset --yes   # khusus database demo
-```
-
-Swagger ada di http://localhost:8000/docs. Untuk mencoba endpoint yang butuh login, panggil `POST /api/v1/auth/login`, salin `data.token`, lalu klik **Authorize**.
-
-## Test & lint
-
-```bash
-pytest                 # memakai DB TEST_MONGODB_DB, yang DI-DROP setiap test. Beri nama sendiri, mis. koperasi_test_be2
-ruff check . && ruff format --check .
-```
-
-## Aturan untuk BE-2 / BE-3 (wajib dibaca sebelum menulis router)
-
-| Butuh | Pakai | Jangan |
+| Bentuk | Lokasi | Kegunaan |
 |---|---|---|
-| DB / client (transaction) | `Depends(get_db)`, `Depends(get_client)` dari `app.api.deps` | import `app.db.mongo` langsung |
-| User login + cek role | `user: CurrentUser = Depends(require_roles(Role.LOGISTIK))` | cek role manual di service |
-| Error bisnis | `raise AppError(409, "INSUFFICIENT_STOCK", "Stok tidak mencukupi", details)` | `HTTPException` |
-| Response | `return ok(data, "pesan")` / `paginated(items, page, total)` + `response_model=ApiResponse[X]` | return dict mentah tanpa `response_model` |
-| Pagination | `page: PageParams = Depends()` → `repositories.base.find_page(...)` | hitung skip sendiri |
-| Waktu & filter tanggal | `app.utils.time`: `utcnow`, `today_wib`, `wib_range_to_utc`, `created_at_filter` | `datetime.now()` tanpa zona, modul waktu baru |
-| ID | `app.utils.objectid`: `parse_object_id` (URL → 404), `optional_object_id` (query → 422), `try_object_id` | `ObjectId(x)` mentah |
-| Pencarian | `search_regex(term)` dari `app.utils.text` | text index / regex mentah dari user |
-| Audit | `await audit.log(db, user, AuditAction.X, AuditModule.Y, ref_id, "deskripsi", session=session)` | tulis ke `audit_logs` langsung |
-| Transaction | `await run_in_transaction(db.client, txn)` dari `app.db.transaction` | `start_session` manual |
-| Schema | turunkan dari `CamelModel` / `DocModel` (`app.schemas.common`); ID di body pakai `RequestId` | `CamelModel` baru, `alias=` manual per field |
-| Output bergantung role | dump manual (`model_dump(by_alias=True, mode="json", exclude=...)`), tanpa `response_model` — lihat `product_service.present` | kirim `costPrice` ke KASIR |
-| Dashboard | satu fungsi per role di `app/services/dashboard/` | router/registry dashboard baru |
+| Markdown per bab | folder `docs/` | Dibaca langsung di repositori, mudah diperbarui per bagian |
+| HTML tunggal | `docs/dokumentasi-toko-koperasi.html` | Dibuka di peramban tanpa server, dilengkapi daftar isi dan mode gelap |
 
-Router baru didaftarkan di `app/api/v1/router.py`, di bagian masing-masing.
+## Daftar isi
 
-## Sebelum membuka PR
+| No. | Bab | Isi pokok |
+|---|---|---|
+| 1 | [Gambaran Umum](01-gambaran-umum.md) | Latar belakang, tujuan, ruang lingkup, istilah |
+| 2 | [Arsitektur Sistem](02-arsitektur.md) | Komponen, teknologi, alur data, struktur repositori |
+| 3 | [Peran dan Hak Akses](03-peran-dan-hak-akses.md) | Lima peran, aplikasi yang dapat dibuka, matriks hak akses |
+| 4 | [Fitur Aplikasi](04-fitur-aplikasi.md) | Fitur aplikasi kasir dan panel admin per peran |
+| 5 | [Model Data](05-model-data.md) | Koleksi MongoDB, field penting, indeks, aturan bisnis |
+| 6 | [Referensi API](06-referensi-api.md) | Format respons, autentikasi, daftar endpoint, kode galat |
+| 7 | [AI Engine](07-ai-engine.md) | Association rules, forecasting, saran restock, kontrak data |
+| 8 | [Pemindaian Barcode](08-pemindaian-barcode.md) | Scanner USB, input manual, kamera, format yang didukung |
+| 9 | [Instalasi dan Pengembangan](09-instalasi-dan-pengembangan.md) | Menjalankan tiap komponen secara lokal, data demo, konvensi kode |
+| 10 | [Deployment](10-deployment.md) | Docker Compose, Portainer, domain dan HTTPS, variabel lingkungan |
+| 11 | [Keamanan dan Pengujian](11-keamanan-dan-pengujian.md) | Mekanisme keamanan, audit trail, pengujian otomatis |
 
-```bash
-ruff check . && ruff format --check . && pytest
-uvicorn app.main:app   # minimal harus bisa start
-```
-PR yang gagal salah satu dari ini tidak di-merge.
+## Konvensi penulisan
+
+Nama field, endpoint, perintah, dan nama berkas ditulis dengan huruf monospace, misalnya `sellingPrice` atau `GET /api/v1/products`. Nilai yang harus diganti sesuai lingkungan masing-masing ditulis di antara tanda kurung sudut, misalnya `<domain>`. Seluruh waktu yang tersimpan di basis data menggunakan UTC, sedangkan tanggal yang ditampilkan dan dipakai sebagai filter menggunakan zona waktu WIB (Asia/Jakarta).
+
+HTML tunggal dibangun ulang dari berkas Markdown dengan perintah `python docs/build_html.py` (membutuhkan Pandoc), sehingga perubahan cukup dilakukan pada berkas Markdown.

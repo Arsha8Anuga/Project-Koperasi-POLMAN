@@ -28,6 +28,7 @@ export const useCartStore = defineStore('cart', {
       const existing = this.items.find((i) => i.productId === product.id)
       if (existing) {
         existing.stock = product.stock
+        existing.imageUrl = product.imageUrl ?? existing.imageUrl ?? null
         if (existing.quantity < product.stock) existing.quantity++
       } else {
         this.items.push({
@@ -38,6 +39,7 @@ export const useCartStore = defineStore('cart', {
           price: product.sellingPrice,
           quantity: 1,
           stock: product.stock,
+          imageUrl: product.imageUrl ?? null,
         })
       }
       this.persist()
@@ -61,6 +63,7 @@ export const useCartStore = defineStore('cart', {
         if (!p) continue
         item.price = p.sellingPrice
         item.stock = p.stock
+        item.imageUrl = p.imageUrl
         if (item.quantity > p.stock) item.quantity = Math.max(p.stock, 0)
       }
       this.items = this.items.filter((i) => i.quantity > 0)

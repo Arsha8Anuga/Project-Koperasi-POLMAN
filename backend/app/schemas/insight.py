@@ -56,6 +56,7 @@ class SuggestionProduct(CamelModel):
     unit: str
     selling_price: int
     stock: int
+    image_url: str | None = None
 
 
 class Suggestion(CamelModel):

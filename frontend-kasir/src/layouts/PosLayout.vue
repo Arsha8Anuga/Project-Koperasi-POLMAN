@@ -4,9 +4,9 @@ import { useRouter } from 'vue-router'
 import BrandMark from '@/components/common/BrandMark.vue'
 import ThemeToggle from '@/components/common/ThemeToggle.vue'
 import UserMenu from '@/components/common/UserMenu.vue'
-import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { useAuthStore } from '@/stores/auth'
+import { BRAND } from '@/utils/brand'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -23,28 +23,34 @@ async function logout() {
 </script>
 
 <template>
-  <div class="flex h-screen flex-col">
-    <header class="z-20 flex h-16 shrink-0 items-center gap-4 border-b bg-card px-4 sm:px-6">
-      <RouterLink :to="{ name: 'pos' }" class="flex items-center gap-3">
-        <BrandMark />
-        <div class="hidden leading-tight sm:block">
-          <p class="text-[15px] font-bold">Toko Koperasi</p>
-          <p class="text-xs text-muted-foreground">Aplikasi Kasir</p>
-        </div>
+  <div class="flex h-dvh flex-col">
+    <header class="z-20 flex h-16 shrink-0 items-center gap-2 px-3 sm:px-4">
+      <!-- "breadcrumb" ala referensi: logo · nama koperasi / halaman -->
+      <RouterLink
+        :to="{ name: 'pos' }"
+        class="flex items-center gap-2.5 rounded-xl bg-card p-1 shadow-xs ring-1 ring-border sm:pr-3.5"
+      >
+        <BrandMark size="sm" />
+        <span class="hidden text-sm font-bold sm:inline">{{ BRAND.name }}</span>
       </RouterLink>
+      <span class="text-muted-foreground/60 select-none" aria-hidden="true">/</span>
 
-      <nav class="ml-2 flex items-center gap-1 sm:ml-6">
-        <Button v-for="item in nav" :key="item.name" as-child variant="ghost" class="font-semibold text-muted-foreground">
-          <RouterLink :to="{ name: item.name }" active-class="bg-accent text-accent-foreground">
-            <component :is="item.icon" />
-            <span class="hidden sm:inline">{{ item.label }}</span>
-          </RouterLink>
-        </Button>
+      <nav class="flex items-center gap-1" aria-label="Menu kasir">
+        <RouterLink
+          v-for="item in nav"
+          :key="item.name"
+          :to="{ name: item.name }"
+          class="flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-muted-foreground transition outline-none hover:bg-card/70 hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+          active-class="bg-card text-foreground! shadow-xs ring-1 ring-border"
+        >
+          <component :is="item.icon" class="size-4" />
+          <span class="hidden sm:inline">{{ item.label }}</span>
+        </RouterLink>
       </nav>
 
-      <div class="ml-auto flex items-center gap-1.5">
+      <div class="ml-auto flex items-center gap-1 rounded-xl bg-card p-1 shadow-xs ring-1 ring-border">
         <ThemeToggle />
-        <Separator orientation="vertical" class="mx-1 h-6!" />
+        <Separator orientation="vertical" class="mx-0.5 h-6!" />
         <UserMenu :name="auth.user?.name" subtitle="Kasir" @logout="logout" />
       </div>
     </header>

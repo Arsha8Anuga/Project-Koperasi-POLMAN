@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { appRoutes } from './routes'
+import { BRAND } from '@/utils/brand'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -50,7 +51,7 @@ router.beforeEach(async (to) => {
 })
 
 router.afterEach((to) => {
-  document.title = to.meta.title ? `${to.meta.title} · Admin Koperasi` : 'Admin Koperasi'
+  document.title = to.meta.title ? `${to.meta.title} · Admin ${BRAND.name}` : `Admin ${BRAND.name}`
 })
 
 export default router

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CircleAlertIcon, RefreshCwIcon, ScanBarcodeIcon, SearchIcon, SearchXIcon, XIcon } from '@lucide/vue'
+import { CircleAlertIcon, RefreshCwIcon, ScanBarcodeIcon, SearchIcon, SearchXIcon, ShoppingBagIcon, XIcon } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { toast } from 'vue-sonner'
 import CartPanel from '@/components/cart/CartPanel.vue'
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import { Kbd } from '@/components/ui/kbd'
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useScannerInput } from '@/composables/useScannerInput'
 import { ApiException, errorMessage } from '@/services/api'
@@ -57,6 +58,27 @@ watch(search, () => {
 watch(categoryId, loadProducts)
 
 const qtyInCart = computed(() => new Map(cart.items.map((i) => [i.productId, i.quantity])))
+
+// ---------- jumlah produk per kategori (angka di tab) ----------
+const counts = ref<Record<string, number>>({})
+async function loadCounts() {
+  try {
+    const all = await catalogApi.products({ limit: 1 })
+    const per = await Promise.all(categories.value.map((c) => catalogApi.products({ categoryId: c.id, limit: 1 })))
+    counts.value = Object.fromEntries([['', all.meta.total], ...categories.value.map((c, i) => [c.id, per[i]?.meta.total ?? 0])])
+  } catch {
+    counts.value = {} // angka hanya pelengkap; tab tetap bisa dipakai
+  }
+}
+const tabs = computed(() => [{ id: '', name: 'Semua' }, ...categories.value.map((c) => ({ id: c.id, name: c.name }))])
+
+function reload() {
+  loadProducts()
+  loadCounts()
+}
+
+// ---------- HP/tablet: detail pesanan dibuka sebagai sheet dari bawah ----------
+const orderOpen = ref(false)
 
 // ---------- barcode: scanner USB, ketik + Enter, atau kamera ----------
 const scanOpen = ref(false)
@@ -136,6 +158,7 @@ onMounted(async () => {
   loadProducts()
   try {
     categories.value = await catalogApi.categories()
+    loadCounts()
   } catch {
     /* filter kategori opsional: katalog tetap bisa dipakai */
   }
@@ -147,16 +170,17 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="flex h-full">
+  <div class="flex h-full gap-4 p-3 sm:p-4 lg:gap-5">
     <section class="flex min-w-0 flex-1 flex-col">
-      <div class="space-y-3 border-b bg-card/60 px-4 py-4 backdrop-blur sm:px-6">
-        <div class="relative">
+      <!-- toolbar: pencarian/scan + tab kategori -->
+      <div class="flex flex-col gap-3 xl:flex-row xl:items-center">
+        <div class="relative xl:w-[26rem] xl:shrink-0">
           <SearchIcon class="pointer-events-none absolute top-1/2 left-3.5 size-[18px] -translate-y-1/2 text-muted-foreground" />
           <Input
             id="product-search"
             v-model="search"
             data-scan-input
-            class="h-11 pr-24 pl-11 text-[15px] md:text-[15px]"
+            class="h-11 rounded-xl bg-card pr-24 pl-11 text-[15px] md:text-[15px]"
             placeholder="Cari nama/SKU, atau scan barcode lalu Enter…"
             aria-label="Cari produk atau scan barcode"
             @keydown.enter.prevent="onSearchEnter"
@@ -172,34 +196,39 @@ onBeforeUnmount(() => {
           </div>
         </div>
 
-        <div class="flex gap-2 overflow-x-auto pb-0.5">
-          <Button size="sm" class="shrink-0 rounded-full" :variant="categoryId === '' ? 'default' : 'outline'" @click="categoryId = ''">
-            Semua
-          </Button>
-          <Button
-            v-for="c in categories"
-            :key="c.id"
-            size="sm"
-            class="shrink-0 rounded-full"
-            :variant="categoryId === c.id ? 'default' : 'outline'"
-            @click="categoryId = c.id"
+        <div class="-mx-3 flex gap-1.5 overflow-x-auto px-3 pb-0.5 sm:mx-0 sm:px-0 xl:ml-auto" role="tablist" aria-label="Kategori">
+          <button
+            v-for="t in tabs"
+            :key="t.id"
+            type="button"
+            role="tab"
+            :aria-selected="categoryId === t.id"
+            class="flex h-9 shrink-0 items-center gap-2 rounded-xl px-3 text-sm font-medium transition outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+            :class="categoryId === t.id ? 'bg-card text-foreground shadow-sm ring-1 ring-border' : 'text-muted-foreground hover:bg-card/70 hover:text-foreground'"
+            @click="categoryId = t.id"
           >
-            {{ c.name }}
-          </Button>
+            {{ t.name }}
+            <span
+              v-if="counts[t.id] !== undefined"
+              class="num rounded-md px-1.5 py-0.5 text-[11px] font-semibold"
+              :class="categoryId === t.id ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground'"
+              >{{ counts[t.id] }}</span
+            >
+          </button>
         </div>
       </div>
 
-      <main class="flex-1 overflow-y-auto px-4 py-5 sm:px-6">
-        <div class="mb-4 flex items-center justify-between">
-          <p class="text-sm text-muted-foreground">
-            <span class="num font-semibold text-foreground">{{ total }}</span> produk
-            <span v-if="total > products.length">(menampilkan {{ products.length }} — persempit pencarian)</span>
-          </p>
-          <Button variant="ghost" size="sm" :disabled="loading" @click="loadProducts">
-            <RefreshCwIcon :class="loading && 'animate-spin'" /> Muat ulang
-          </Button>
-        </div>
+      <div class="mt-3 mb-2 flex items-center justify-between">
+        <p class="text-sm text-muted-foreground">
+          <span class="num font-semibold text-foreground">{{ total }}</span> produk
+          <span v-if="total > products.length">(menampilkan {{ products.length }} — persempit pencarian)</span>
+        </p>
+        <Button variant="ghost" size="sm" :disabled="loading" @click="reload">
+          <RefreshCwIcon :class="loading && 'animate-spin'" /> Muat ulang
+        </Button>
+      </div>
 
+      <main class="-mx-1 flex-1 overflow-y-auto px-1 pb-4">
         <Alert v-if="error" variant="destructive" class="mb-4">
           <CircleAlertIcon />
           <AlertDescription class="flex flex-wrap items-center justify-between gap-2">
@@ -208,13 +237,13 @@ onBeforeUnmount(() => {
           </AlertDescription>
         </Alert>
 
-        <div v-if="loading && products.length === 0" class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-          <Skeleton v-for="n in 10" :key="n" class="h-56 rounded-xl" />
+        <div v-if="loading && products.length === 0" class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <Skeleton v-for="n in 9" :key="n" class="h-40 rounded-2xl sm:h-44" />
         </div>
 
         <div
           v-else-if="products.length > 0"
-          class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+          class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
           :class="loading && 'opacity-60'"
         >
           <ProductCard
@@ -238,22 +267,40 @@ onBeforeUnmount(() => {
         </Empty>
       </main>
 
-      <!-- Layar kecil: keranjang tersembunyi, tampilkan ringkasan + tombol bayar -->
-      <div class="flex items-center justify-between gap-3 border-t bg-card px-4 py-3 lg:hidden">
-        <div>
-          <p class="text-xs text-muted-foreground">{{ cart.totalQty }} barang</p>
-          <p class="num text-lg font-bold">{{ formatRupiah(cart.totalAmount) }}</p>
-        </div>
-        <Button as-child size="lg" :class="cart.isEmpty && 'pointer-events-none opacity-50'">
+      <!-- HP/tablet: ringkasan pesanan menempel di bawah -->
+      <div class="-mx-3 -mb-3 flex items-center gap-3 border-t bg-card px-4 py-3 sm:-mx-4 sm:-mb-4 lg:hidden">
+        <button type="button" class="flex min-w-0 flex-1 items-center gap-3 text-left" @click="orderOpen = true">
+          <span class="relative flex size-11 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground">
+            <ShoppingBagIcon class="size-5" />
+            <span
+              v-if="cart.totalQty"
+              class="num absolute -top-1.5 -right-1.5 min-w-5 rounded-full bg-primary px-1 text-center text-[11px] leading-5 font-bold text-primary-foreground"
+              >{{ cart.totalQty }}</span
+            >
+          </span>
+          <span class="min-w-0">
+            <span class="block text-xs text-muted-foreground">Lihat detail pesanan</span>
+            <span class="num block text-lg leading-tight font-bold">{{ formatRupiah(cart.totalAmount) }}</span>
+          </span>
+        </button>
+        <Button as-child size="lg" class="rounded-xl" :class="cart.isEmpty && 'pointer-events-none opacity-50'">
           <RouterLink :to="{ name: 'payment' }">Bayar</RouterLink>
         </Button>
       </div>
     </section>
 
-    <aside class="hidden w-[22rem] shrink-0 border-l bg-card lg:block xl:w-[24rem]">
+    <aside class="hidden w-[23rem] shrink-0 overflow-hidden rounded-2xl border bg-card shadow-xs lg:block xl:w-[25rem]">
       <CartPanel />
     </aside>
   </div>
+
+  <Sheet v-model:open="orderOpen">
+    <SheetContent side="bottom" class="h-[88dvh] gap-0 rounded-t-2xl p-0">
+      <SheetTitle class="sr-only">Detail pesanan</SheetTitle>
+      <SheetDescription class="sr-only">Daftar barang di keranjang dan total pembayaran</SheetDescription>
+      <CartPanel @checkout="orderOpen = false" />
+    </SheetContent>
+  </Sheet>
 
   <BarcodeScanner v-model:open="scanOpen" title="Scan barang ke keranjang" continuous @detected="handleCode" />
 </template>

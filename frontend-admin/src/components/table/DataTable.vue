@@ -18,6 +18,8 @@ defineProps<{
   rowKey?: string
   empty?: string
   clickable?: boolean
+  /** Tampilkan kolom "No." — isi offset halaman: (page - 1) * limit. */
+  startIndex?: number
 }>()
 const emit = defineEmits<{ rowClick: [row: any] }>()
 
@@ -28,6 +30,9 @@ const alignClass = (a?: string) => (a === 'right' ? 'text-right' : a === 'center
   <Table>
     <TableHeader class="bg-muted/60">
       <TableRow class="hover:bg-transparent">
+        <TableHead v-if="startIndex !== undefined" class="h-11 w-14 px-4 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          No.
+        </TableHead>
         <TableHead
           v-for="c in columns"
           :key="c.key"
@@ -40,10 +45,11 @@ const alignClass = (a?: string) => (a === 'right' ? 'text-right' : a === 'center
     <TableBody>
       <template v-if="loading && rows.length === 0">
         <TableRow v-for="n in 5" :key="n">
+          <TableCell v-if="startIndex !== undefined" class="px-4 py-3.5"><Skeleton class="h-4 w-6" /></TableCell>
           <TableCell v-for="c in columns" :key="c.key" class="px-4 py-3.5"><Skeleton class="h-4 w-full max-w-40" /></TableCell>
         </TableRow>
       </template>
-      <TableEmpty v-else-if="rows.length === 0" :colspan="columns.length">
+      <TableEmpty v-else-if="rows.length === 0" :colspan="columns.length + (startIndex !== undefined ? 1 : 0)">
         <Empty class="p-0 md:p-0">
           <EmptyHeader>
             <EmptyMedia variant="icon"><InboxIcon /></EmptyMedia>
@@ -60,6 +66,7 @@ const alignClass = (a?: string) => (a === 'right' ? 'text-right' : a === 'center
         @click="clickable && emit('rowClick', row)"
         @keydown.enter="clickable && emit('rowClick', row)"
       >
+        <TableCell v-if="startIndex !== undefined" class="num px-4 py-3 text-muted-foreground">{{ startIndex + i + 1 }}</TableCell>
         <TableCell v-for="c in columns" :key="c.key" :class="['px-4 py-3', alignClass(c.align), c.class]">
           <slot :name="`cell-${c.key}`" :row="row">{{ row[c.key] ?? '—' }}</slot>
         </TableCell>

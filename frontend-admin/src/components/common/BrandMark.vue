@@ -1,17 +1,20 @@
 <script setup lang="ts">
+import { BRAND } from '@/utils/brand'
+
+/** Logo toko. Gambar diambil dari public/logo.svg — ganti file itu untuk memasang logo asli. */
 withDefaults(defineProps<{ size?: 'sm' | 'md' | 'lg' }>(), { size: 'md' })
 </script>
 
 <template>
-  <span
-    class="inline-flex shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-[#2b4f8f] to-[#0f1d3a] font-extrabold tracking-tight text-white shadow-sm ring-1 ring-white/10"
+  <img
+    :src="BRAND.logo"
+    :alt="`Logo ${BRAND.name}`"
+    class="shrink-0 rounded-xl bg-muted object-contain ring-1 ring-border"
     :class="{
-      'h-8 w-8 text-sm': size === 'sm',
-      'h-10 w-10 text-base': size === 'md',
-      'h-14 w-14 rounded-2xl text-xl': size === 'lg',
+      'size-8': size === 'sm',
+      'size-10': size === 'md',
+      'size-14 rounded-2xl': size === 'lg',
     }"
-    aria-hidden="true"
-  >
-    K
-  </span>
+    draggable="false"
+  />
 </template>

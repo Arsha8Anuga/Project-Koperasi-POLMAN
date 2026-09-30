@@ -111,7 +111,8 @@ async function toggle() {
       <FilterToggle v-model="list.filters.isActive" :options="activeOptions" label="Status" />
     </div>
     <ErrorAlert v-if="list.error.value" :message="list.error.value" class="m-4 w-auto" />
-    <DataTable :columns="columns" :rows="list.rows.value" :loading="list.loading.value" row-key="id" empty="Belum ada supplier">
+    <DataTable :columns="columns" :rows="list.rows.value"
+      :start-index="(list.meta.value.page - 1) * list.meta.value.limit" :loading="list.loading.value" row-key="id" empty="Belum ada supplier">
       <template #cell-supplier="{ row }">
         <p class="font-semibold">{{ row.name }}</p>
         <p class="font-mono text-xs text-muted-foreground">{{ row.supplierCode }}</p>

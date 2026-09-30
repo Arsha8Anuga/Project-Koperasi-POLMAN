@@ -66,6 +66,7 @@ const columns: Column[] = [
     <DataTable
       :columns="columns"
       :rows="list.rows.value"
+      :start-index="(list.meta.value.page - 1) * list.meta.value.limit"
       :loading="list.loading.value"
       row-key="id"
       clickable

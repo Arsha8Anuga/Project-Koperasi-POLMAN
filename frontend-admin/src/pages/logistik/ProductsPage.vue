@@ -126,7 +126,8 @@ async function toggle() {
 
     <ErrorAlert v-if="list.error.value" :message="list.error.value" class="m-4 w-auto" />
 
-    <DataTable :columns="columns" :rows="list.rows.value" :loading="list.loading.value" row-key="id" empty="Belum ada produk">
+    <DataTable :columns="columns" :rows="list.rows.value"
+      :start-index="(list.meta.value.page - 1) * list.meta.value.limit" :loading="list.loading.value" row-key="id" empty="Belum ada produk">
       <template #cell-name="{ row }">
         <div class="flex items-center gap-3">
           <ProductThumb :src="row.imageUrl" :alt="row.name" />

@@ -102,7 +102,8 @@ async function save() {
       <FilterToggle v-model="list.filters.isActive" :options="activeOptions" label="Status" />
     </div>
     <ErrorAlert v-if="list.error.value" :message="list.error.value" class="m-4 w-auto" />
-    <DataTable :columns="columns" :rows="list.rows.value" :loading="list.loading.value" row-key="id" empty="Belum ada anggota">
+    <DataTable :columns="columns" :rows="list.rows.value"
+      :start-index="(list.meta.value.page - 1) * list.meta.value.limit" :loading="list.loading.value" row-key="id" empty="Belum ada anggota">
       <template #cell-memberNumber="{ row }"><span class="font-mono text-[13px] font-semibold">{{ row.memberNumber }}</span></template>
       <template #cell-name="{ row }"><span class="font-semibold">{{ row.name }}</span></template>
       <template #cell-phone="{ row }"><span class="text-muted-foreground">{{ row.phone ?? '—' }}</span></template>

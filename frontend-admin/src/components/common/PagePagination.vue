@@ -32,7 +32,7 @@ const page = defineModel<number>('page', { required: true })
       class="mx-0 w-auto"
     >
       <PaginationContent v-slot="{ items }">
-        <PaginationPrevious size="icon-sm" aria-label="Halaman sebelumnya"><ChevronLeftIcon /></PaginationPrevious>
+        <PaginationPrevious size="sm" class="px-2.5" aria-label="Halaman sebelumnya"><ChevronLeftIcon /><span class="hidden sm:inline">Sebelumnya</span></PaginationPrevious>
         <template v-for="(item, index) in items" :key="index">
           <PaginationItem
             v-if="item.type === 'page'"
@@ -45,7 +45,7 @@ const page = defineModel<number>('page', { required: true })
           </PaginationItem>
           <PaginationEllipsis v-else :index="index" />
         </template>
-        <PaginationNext size="icon-sm" aria-label="Halaman berikutnya"><ChevronRightIcon /></PaginationNext>
+        <PaginationNext size="sm" class="px-2.5" aria-label="Halaman berikutnya"><span class="hidden sm:inline">Berikutnya</span><ChevronRightIcon /></PaginationNext>
       </PaginationContent>
     </Pagination>
   </div>

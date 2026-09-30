@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Sale } from '@/types'
 import { formatDateTime, formatRupiah } from '@/utils/format'
+import { BRAND } from '@/utils/brand'
 
 defineProps<{ sale: Sale }>()
 </script>
@@ -9,7 +10,7 @@ defineProps<{ sale: Sale }>()
 <template>
   <div class="receipt mx-auto w-[300px] rounded-xl bg-white px-5 py-6 font-mono text-[12px] leading-relaxed text-[#111827] shadow-sm">
     <div class="text-center">
-      <p class="font-sans text-base font-extrabold tracking-tight">TOKO KOPERASI</p>
+      <p class="font-sans text-base font-extrabold tracking-tight uppercase">{{ BRAND.name }}</p>
       <p class="text-[11px] text-[#4b5563]">Struk Penjualan</p>
     </div>
 
@@ -50,6 +51,6 @@ defineProps<{ sale: Sale }>()
     </div>
 
     <div class="my-3 border-t border-dashed border-[#9ca3af]" />
-    <p class="text-center text-[11px] text-[#4b5563]">Terima kasih atas kunjungan Anda</p>
+    <p class="text-center text-[11px] text-[#4b5563]">Terima kasih atas kunjungannya</p>
   </div>
 </template>

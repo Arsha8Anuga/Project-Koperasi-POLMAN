@@ -91,6 +91,7 @@ async def frequently_bought(db: AsyncDatabase, product_ids: list[str], limit: in
                     unit=p["unit"],
                     selling_price=p["sellingPrice"],
                     stock=p["stock"],
+                    image_url=p.get("imageUrl"),
                 ),
                 because=because,
                 confidence=confidence,

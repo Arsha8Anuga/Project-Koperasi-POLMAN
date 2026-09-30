@@ -1,0 +1,8 @@
+<!-- LOGO SEMENTARA (placeholder). Ganti file ini dengan logo Koperasi POLMAN (SVG/PNG persegi, nama file tetap
+     logo.svg, atau ubah src di components/common/BrandMark.vue). Dipakai juga sebagai favicon. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Logo">
+  <rect width="64" height="64" rx="14" fill="#e2e6ee"/>
+  <rect x="14" y="17" width="36" height="30" rx="4" fill="none" stroke="#8a94a8" stroke-width="3"/>
+  <circle cx="25" cy="27" r="4" fill="#8a94a8"/>
+  <path d="M16 44 L28 33 L35 39 L41 34 L48 41 L48 44 Z" fill="#8a94a8"/>
+</svg>

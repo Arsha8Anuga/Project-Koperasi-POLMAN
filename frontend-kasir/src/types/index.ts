@@ -126,6 +126,8 @@ export interface CartItem {
   price: number
   quantity: number
   stock: number
+  /** Untuk thumbnail di detail pesanan (item lama di localStorage bisa belum punya). */
+  imageUrl?: string | null
 }
 
 /** Detail error INSUFFICIENT_STOCK / PRODUCT_INACTIVE dari backend. */
@@ -138,7 +140,7 @@ export interface StockIssue {
 }
 
 /** Bagian produk yang dibutuhkan keranjang (produk katalog atau saran AI). */
-export type CartProduct = Pick<Product, 'id' | 'sku' | 'name' | 'unit' | 'sellingPrice' | 'stock'>
+export type CartProduct = Pick<Product, 'id' | 'sku' | 'name' | 'unit' | 'sellingPrice' | 'stock'> & { imageUrl?: string | null }
 
 /** Saran "sering dibeli bersama" dari AI engine (GET /insights/frequently-bought). */
 export interface Suggestion {

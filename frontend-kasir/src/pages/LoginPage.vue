@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import { errorMessage } from '@/services/api'
 import { useAuthStore } from '@/stores/auth'
+import { BRAND } from '@/utils/brand'
 
 const auth = useAuthStore()
 const route = useRoute()
@@ -49,7 +50,7 @@ async function submit() {
       <Card>
         <CardHeader class="text-center">
           <CardTitle class="text-2xl font-bold">Masuk Kasir</CardTitle>
-          <CardDescription>Toko Koperasi · gunakan akun kasir Anda</CardDescription>
+          <CardDescription>{{ BRAND.name }} · masuk dengan akun kasir</CardDescription>
         </CardHeader>
         <CardContent>
           <form @submit.prevent="submit">
