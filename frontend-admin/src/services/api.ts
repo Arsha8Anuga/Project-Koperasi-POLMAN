@@ -82,6 +82,8 @@ export const productApi = {
     },
   ) => page<Paginated<Product>>(api.get('/products', { params: clean(q) })),
   get: (id: string) => data<Product>(api.get(`/products/${id}`)),
+  /** Barcode/SKU persis (hasil scan / ketik manual). 404 kalau belum terdaftar. */
+  lookup: (code: string) => data<Product>(api.get(`/products/lookup/${encodeURIComponent(code.trim())}`)),
   create: (body: ProductInput) => data<Product>(api.post('/products', body)),
   update: (id: string, body: ProductInput) => data<Product>(api.put(`/products/${id}`, body)),
   setStatus: (id: string, isActive: boolean) => data<Product>(api.patch(`/products/${id}/status`, { isActive })),

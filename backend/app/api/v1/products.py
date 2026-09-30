@@ -36,6 +36,16 @@ async def list_products(
     return paginated(items, page, total)
 
 
+# Didefinisikan SEBELUM /{product_id} supaya "lookup" tidak dianggap ID.
+@router.get("/lookup/{code}")
+async def lookup_product(
+    code: str, user: CurrentUser = Depends(viewers), db: AsyncDatabase = Depends(get_db)
+):
+    """Hasil scan barcode (scanner USB, kamera, atau ketik manual): barcode persis, lalu SKU persis.
+    KASIR hanya mendapat produk aktif."""
+    return ok(await product_service.lookup_by_code(db, user, code))
+
+
 @router.get("/{product_id}")
 async def get_product(
     product_id: str, user: CurrentUser = Depends(viewers), db: AsyncDatabase = Depends(get_db)

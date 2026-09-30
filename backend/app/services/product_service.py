@@ -107,6 +107,23 @@ async def get_product(db: AsyncDatabase, viewer: CurrentUser, product_id: str) -
     return present(doc, category["name"] if category else None, viewer)
 
 
+async def lookup_by_code(db: AsyncDatabase, viewer: CurrentUser, code: str) -> dict[str, Any]:
+    """Hasil scan / ketik barcode. Cocok PERSIS dengan barcode, lalu dengan SKU (huruf besar).
+    Sengaja bukan pencarian regex: '899123' tidak boleh cocok dengan '8991234'."""
+    code = code.strip()
+    if not code:
+        raise not_found("Kode kosong")
+    doc = await product_repo.find_one(db, {"barcode": code}) or await product_repo.find_one(
+        db, {"sku": code.upper()}
+    )
+    if doc is None:
+        raise not_found(f"Barcode/SKU {code} belum terdaftar")
+    if viewer.role == Role.KASIR and not doc["isActive"]:
+        raise not_found(f"Produk dengan kode {code} sedang nonaktif")
+    category = await category_repo.find_by_id(db, doc["categoryId"])
+    return present(doc, category["name"] if category else None, viewer)
+
+
 def _fields(body: ProductCreate, category: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     fields = {
         "sku": body.sku,

@@ -15,6 +15,12 @@ export const catalogApi = {
     return res.data
   },
 
+  /** Barcode/SKU persis (hasil scan). 404 kalau belum terdaftar atau produk nonaktif. */
+  async lookup(code: string): Promise<Product> {
+    const res = await api.get<ApiResponse<Product>>(`/products/lookup/${encodeURIComponent(code.trim())}`)
+    return res.data.data
+  },
+
   async categories(): Promise<Category[]> {
     const res = await api.get<ApiResponse<Category[]>>('/categories', { params: { isActive: true } })
     return res.data.data

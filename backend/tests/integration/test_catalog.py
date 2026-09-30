@@ -150,3 +150,30 @@ async def test_supplier_crud(db, client, staff):
         403,
         "FORBIDDEN",
     )
+
+
+async def test_lookup_barcode_cocok_persis(db, client, staff):
+    lg, kasir, admin = staff["LOGISTIK"], staff["KASIR"], staff["ADMIN"]
+    cat = await make_category(client, lg)
+    a = await make_product(client, lg, cat, "ATK-001", barcode="8991234")
+    await make_product(client, lg, cat, "ATK-002", barcode="899123")
+    off = await make_product(client, lg, cat, "ATK-003", barcode="1110001")
+    await client.patch(f"/products/{off}/status", headers=lg, json={"isActive": False})
+
+    res = await client.get("/products/lookup/8991234", headers=kasir)
+    assert res.status_code == 200, res.text
+    data = res.json()["data"]
+    assert data["id"] == a and "costPrice" not in data  # kasir tetap tanpa harga pokok
+
+    # prefix tidak ikut cocok, dan spasi dari scanner dibuang
+    assert (await client.get("/products/lookup/899123 ", headers=kasir)).json()["data"]["sku"] == "ATK-002"
+    assert_error(await client.get("/products/lookup/89912", headers=kasir), 404, "NOT_FOUND")
+
+    # SKU juga bisa (huruf kecil dinormalkan)
+    assert (await client.get("/products/lookup/atk-001", headers=lg)).json()["data"]["id"] == a
+
+    # produk nonaktif: logistik tetap dapat (untuk restock), kasir tidak
+    assert (await client.get("/products/lookup/1110001", headers=lg)).status_code == 200
+    assert_error(await client.get("/products/lookup/1110001", headers=kasir), 404, "NOT_FOUND")
+
+    assert_error(await client.get("/products/lookup/8991234", headers=admin), 403, "FORBIDDEN")
