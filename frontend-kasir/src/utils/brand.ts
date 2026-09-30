@@ -2,5 +2,5 @@
 export const BRAND = {
   name: 'Koperasi POLMAN',
   short: 'POLMAN',
-  logo: `${import.meta.env.BASE_URL}logo.svg`,
+  logo: `${import.meta.env.BASE_URL}logo.png`,
 } as const
