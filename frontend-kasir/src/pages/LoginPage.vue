@@ -46,7 +46,7 @@ async function submit() {
     <div class="absolute top-4 right-4"><ThemeToggle /></div>
 
     <div class="w-full max-w-sm">
-      <div class="mb-6 flex justify-center"><BrandMark size="lg" /></div>
+      <div class="mb-6 flex justify-center"><BrandMark size="xl" plain /></div>
       <Card>
         <CardHeader class="text-center">
           <CardTitle class="text-2xl font-bold">Masuk Kasir</CardTitle>
