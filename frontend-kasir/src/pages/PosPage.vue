@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { CircleAlertIcon, RefreshCwIcon, SearchIcon, SearchXIcon, XIcon } from '@lucide/vue'
+import { CircleAlertIcon, RefreshCwIcon, ScanBarcodeIcon, SearchIcon, SearchXIcon, XIcon } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { toast } from 'vue-sonner'
 import CartPanel from '@/components/cart/CartPanel.vue'
+import BarcodeScanner from '@/components/common/BarcodeScanner.vue'
 import ProductCard from '@/components/product/ProductCard.vue'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -9,7 +11,8 @@ import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTi
 import { Input } from '@/components/ui/input'
 import { Kbd } from '@/components/ui/kbd'
 import { Skeleton } from '@/components/ui/skeleton'
-import { errorMessage } from '@/services/api'
+import { useScannerInput } from '@/composables/useScannerInput'
+import { ApiException, errorMessage } from '@/services/api'
 import { catalogApi } from '@/services/catalogApi'
 import { useCartStore } from '@/stores/cart'
 import type { Category, Product } from '@/types'
@@ -26,14 +29,17 @@ const loading = ref(true)
 const error = ref('')
 
 let requestId = 0
+let loadedQuery = '' // query yang menghasilkan daftar `products` saat ini
 async function loadProducts() {
   const id = ++requestId
+  const query = search.value.trim()
   loading.value = true
   error.value = ''
   try {
-    const res = await catalogApi.products({ search: search.value.trim(), categoryId: categoryId.value })
+    const res = await catalogApi.products({ search: query, categoryId: categoryId.value })
     if (id !== requestId) return // respons lama datang belakangan: abaikan
     products.value = res.data
+    loadedQuery = query
     total.value = res.meta.total
     cart.sync(res.data)
   } catch (e) {
@@ -51,6 +57,60 @@ watch(search, () => {
 watch(categoryId, loadProducts)
 
 const qtyInCart = computed(() => new Map(cart.items.map((i) => [i.productId, i.quantity])))
+
+// ---------- barcode: scanner USB, ketik + Enter, atau kamera ----------
+const scanOpen = ref(false)
+const scanning = ref(false)
+
+function addScanned(p: Product) {
+  const inCart = qtyInCart.value.get(p.id) ?? 0
+  if (p.stock <= 0) return toast.error(`${p.name} stoknya habis`)
+  if (inCart >= p.stock) return toast.warning(`${p.name}: sudah maksimal sesuai stok (${p.stock})`)
+  cart.add(p)
+  toast.success(`+1 ${p.name}`, { duration: 1500 })
+}
+
+/** Kode dari scanner/kamera/Enter. Cocok persis barcode/SKU → langsung masuk keranjang. */
+async function handleCode(raw: string) {
+  const code = raw.trim()
+  if (!code || scanning.value) return
+  const local = products.value.find((p) => p.barcode === code || p.sku === code.toUpperCase())
+  if (local) return addScanned(local)
+  scanning.value = true
+  try {
+    addScanned(await catalogApi.lookup(code))
+  } catch (e) {
+    if (e instanceof ApiException && e.status === 404) toast.error(errorMessage(e, `Kode ${code} belum terdaftar`))
+    else toast.error(errorMessage(e, 'Gagal mencari produk'))
+  } finally {
+    scanning.value = false
+  }
+}
+
+/** Enter di kolom pencarian: barcode/SKU persis → tambah; kalau hasil pencarian tinggal satu → tambah juga. */
+async function onSearchEnter() {
+  const code = search.value.trim()
+  if (!code) return
+  const exact = products.value.find((p) => p.barcode === code || p.sku === code.toUpperCase())
+  if (exact) {
+    addScanned(exact)
+    search.value = ''
+    return
+  }
+  // hanya kalau daftar yang tampil memang hasil dari teks yang sedang diketik
+  if (!loading.value && loadedQuery === code && products.value.length === 1 && products.value[0]) {
+    addScanned(products.value[0])
+    search.value = ''
+    return
+  }
+  // tidak ada di katalog yang sedang tampil (mis. hasil dibatasi 100): tanya backend
+  if (/^[0-9A-Za-z-]{4,}$/.test(code)) {
+    await handleCode(code)
+    search.value = ''
+  }
+}
+
+useScannerInput(handleCode)
 
 function focusSearch() {
   document.getElementById('product-search')?.focus()
@@ -95,21 +155,21 @@ onBeforeUnmount(() => {
           <Input
             id="product-search"
             v-model="search"
-            class="h-11 pr-12 pl-11 text-[15px] md:text-[15px]"
-            placeholder="Cari nama produk, SKU, atau scan barcode…"
-            aria-label="Cari produk"
+            data-scan-input
+            class="h-11 pr-24 pl-11 text-[15px] md:text-[15px]"
+            placeholder="Cari nama/SKU, atau scan barcode lalu Enter…"
+            aria-label="Cari produk atau scan barcode"
+            @keydown.enter.prevent="onSearchEnter"
           />
-          <Button
-            v-if="search"
-            variant="ghost"
-            size="icon-sm"
-            class="absolute top-1/2 right-1.5 -translate-y-1/2"
-            aria-label="Hapus pencarian"
-            @click="search = ''"
-          >
-            <XIcon />
-          </Button>
-          <Kbd v-else class="absolute top-1/2 right-3 hidden -translate-y-1/2 sm:inline-flex">/</Kbd>
+          <div class="absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center gap-1">
+            <Button v-if="search" variant="ghost" size="icon-sm" aria-label="Hapus pencarian" @click="search = ''">
+              <XIcon />
+            </Button>
+            <Kbd v-else class="hidden sm:inline-flex">/</Kbd>
+            <Button variant="ghost" size="icon-sm" title="Scan pakai kamera" aria-label="Scan pakai kamera" @click="scanOpen = true">
+              <ScanBarcodeIcon />
+            </Button>
+          </div>
         </div>
 
         <div class="flex gap-2 overflow-x-auto pb-0.5">
@@ -194,4 +254,6 @@ onBeforeUnmount(() => {
       <CartPanel />
     </aside>
   </div>
+
+  <BarcodeScanner v-model:open="scanOpen" title="Scan barang ke keranjang" continuous @detected="handleCode" />
 </template>
