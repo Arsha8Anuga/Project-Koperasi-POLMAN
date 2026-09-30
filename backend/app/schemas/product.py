@@ -1,3 +1,4 @@
+import re
 from typing import Annotated
 
 from pydantic import Field, field_validator
@@ -37,6 +38,11 @@ class ProductOut(DocModel):
     updated_at: UtcDatetime
 
 
+# Nilai imageUrl untuk foto yang diunggah ke server (dibuat backend, bukan diketik pengguna).
+INTERNAL_IMAGE_PREFIX = "/api/v1/product-images/"
+INTERNAL_IMAGE_RE = re.compile(r"/api/v1/product-images/[0-9a-f]{24}\.(?:jpg|png|webp)")
+
+
 class ProductCreate(CamelModel):
     """Body POST dan PUT. Field stock/costPrice/lastPurchasePrice kalau dikirim DIABAIKAN."""
 
@@ -55,6 +61,14 @@ class ProductCreate(CamelModel):
     @classmethod
     def _upper(cls, v: str) -> str:
         return v.upper()
+
+    @field_validator("image_url")
+    @classmethod
+    def _image_url(cls, v: str | None) -> str | None:
+        """URL gambar luar (http/https) atau foto yang diunggah lewat PUT /products/{id}/image."""
+        if v is None or v.startswith(("http://", "https://")) or INTERNAL_IMAGE_RE.fullmatch(v):
+            return v
+        raise ValueError("Harus diawali http:// atau https://")
 
 
 ProductUpdate = ProductCreate

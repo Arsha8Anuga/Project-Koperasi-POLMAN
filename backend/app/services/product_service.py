@@ -183,6 +183,11 @@ async def update(
     except DuplicateKeyError as exc:
         raise _duplicate_error(exc, body) from None
 
+    if old.get("imageUrl") != fields["imageUrl"]:
+        from app.services.product_image_service import delete_if_unused  # hindari import melingkar
+
+        await delete_if_unused(db, old.get("imageUrl"), fields["imageUrl"])
+
     if body.selling_price != old["sellingPrice"]:
         await audit.log(
             db,

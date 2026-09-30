@@ -828,7 +828,7 @@ app/db/*            Koneksi, pembuatan indeks, pembungkus transaksi</code></pre>
 <h2 id="42-aplikasi-kasir">4.2 Aplikasi kasir</h2>
 <h3 id="halaman-pos">Halaman POS</h3>
 <ul>
-<li>Katalog produk aktif ditampilkan dalam bentuk kartu beserta harga dan sisa stok. Produk dengan stok habis tidak dapat ditambahkan.</li>
+<li>Katalog produk aktif ditampilkan dalam bentuk kartu beserta foto, harga, dan sisa stok. Produk tanpa foto, atau yang fotonya gagal dimuat, menampilkan inisial nama produk. Produk dengan stok habis tidak dapat ditambahkan.</li>
 <li>Pencarian berdasarkan nama, SKU, atau barcode. Tombol <code>/</code> memindahkan fokus ke kolom pencarian.</li>
 <li>Filter kategori berupa tombol di atas katalog.</li>
 <li>Pemindaian barcode melalui scanner USB, ketik lalu Enter, atau kamera (lihat <a href="#doc-08-pemindaian-barcode">Pemindaian Barcode</a>). Produk hasil pindai langsung masuk ke keranjang; pemindaian ulang menambah jumlahnya.</li>
@@ -894,29 +894,33 @@ app/db/*            Koneksi, pembuatan indeks, pembungkus transaksi</code></pre>
 </tr>
 <tr class="even">
 <td>Produk</td>
-<td>Daftar dengan pencarian, filter kategori, status aktif, dan status stok. Formulir tambah dan ubah produk (SKU, barcode, nama, kategori, satuan, harga jual, stok minimum, URL gambar). Barcode dapat diisi dengan memindai. Produk dapat dinonaktifkan tanpa menghapus riwayat</td>
+<td>Daftar dengan pencarian, filter kategori, status aktif, dan status stok. Formulir tambah dan ubah produk (SKU, barcode, nama, kategori, satuan, harga jual, stok minimum, foto). Barcode dapat diisi dengan memindai. Daftar produk menampilkan gambar kecil setiap produk. Produk dapat dinonaktifkan tanpa menghapus riwayat</td>
 </tr>
 <tr class="odd">
+<td>Produk: foto</td>
+<td>Foto dapat diunggah dari galeri atau kamera ponsel. Foto diperkecil otomatis di peramban (sisi terpanjang 1024 piksel, format WebP atau JPEG) sebelum dikirim, sehingga foto ponsel berukuran beberapa megabita menjadi sekitar 100–250 KB. Sebagai alternatif, URL gambar dari situs lain tetap dapat ditempel. Produk tanpa gambar, atau yang gambarnya gagal dimuat, menampilkan placeholder</td>
+</tr>
+<tr class="even">
 <td>Kategori</td>
 <td>Tambah, ubah, dan nonaktifkan kategori</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>Supplier</td>
 <td>Tambah, ubah, dan nonaktifkan supplier (kode, nama, kontak, telepon, email, alamat)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>Restock</td>
 <td>Daftar restock dengan filter supplier dan tanggal. Formulir restock baru: pilih supplier, tambah baris produk melalui pilihan atau pemindaian, isi jumlah dan harga beli</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>Restock: saran AI</td>
 <td>Pada formulir restock, setiap produk menampilkan perkiraan hari hingga stok habis dan saran jumlah. Tombol <strong>Saran AI</strong> menambahkan seluruh produk yang stoknya sudah mencapai titik pesan ulang beserta jumlah yang disarankan. Seluruh angka tetap dapat diubah sebelum disimpan</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>Stok</td>
 <td>Ringkasan stok aman, menipis, dan habis; grafik stok; grafik produk paling mendesak menurut AI; kolom "habis dalam" dan "saran restock" pada tabel; riwayat pergerakan stok</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>Stok: detail prediksi</td>
 <td>Klik produk untuk membuka grafik penjualan aktual 28 hari, prediksi 14 hari beserta rentang ketidakpastian, garis sisa stok, model yang dipakai, akurasi backtest, stok pengaman, dan titik pesan ulang</td>
 </tr>
@@ -1013,26 +1017,31 @@ app/db/*            Koneksi, pembuatan indeks, pembungkus transaksi</code></pre>
 <td>backend</td>
 </tr>
 <tr class="even">
+<td><code>product_images</code></td>
+<td>Foto produk hasil unggah (biner)</td>
+<td>backend</td>
+</tr>
+<tr class="odd">
 <td><code>counters</code></td>
 <td>Nomor urut kode transaksi harian dan nomor anggota</td>
 <td>backend</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>audit_logs</code></td>
 <td>Audit trail</td>
 <td>backend</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>insights</code></td>
 <td>Hasil analisis AI</td>
 <td>ai-engine</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>ai_jobs</code></td>
 <td>Antrean dan riwayat perhitungan AI</td>
 <td>backend, ai-engine, skrip seed</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>ai_engine_status</code></td>
 <td>Denyut (<em>heartbeat</em>) AI engine</td>
 <td>ai-engine</td>
@@ -1214,7 +1223,7 @@ app/db/*            Koneksi, pembuatan indeks, pembungkus transaksi</code></pre>
 <tr class="odd">
 <td><code>imageUrl</code></td>
 <td>string / null</td>
-<td></td>
+<td>URL gambar luar (<code>https://…</code>) atau foto hasil unggah dengan bentuk <code>/api/v1/product-images/{id}</code>; nilai lain ditolak</td>
 </tr>
 <tr class="even">
 <td><code>isActive</code></td>
@@ -1411,6 +1420,44 @@ app/db/*            Koneksi, pembuatan indeks, pembungkus transaksi</code></pre>
 </tbody>
 </table></div>
 <p>Koleksi ini juga dipakai AI engine untuk mengenali hari-hari ketika sebuah produk kehabisan stok.</p>
+<h3 id="product_images"><code>product_images</code></h3>
+<div class="table-wrap"><table>
+<thead>
+<tr class="header">
+<th>Field</th>
+<th>Tipe</th>
+<th>Keterangan</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>productId</code></td>
+<td>ObjectId</td>
+<td>Produk pemilik foto</td>
+</tr>
+<tr class="even">
+<td><code>contentType</code></td>
+<td>string</td>
+<td><code>image/jpeg</code>, <code>image/png</code>, atau <code>image/webp</code>, ditentukan dari isi file</td>
+</tr>
+<tr class="odd">
+<td><code>size</code></td>
+<td>integer</td>
+<td>Ukuran dalam byte, maksimal 1.500.000</td>
+</tr>
+<tr class="even">
+<td><code>data</code></td>
+<td>biner</td>
+<td>Isi file gambar</td>
+</tr>
+<tr class="odd">
+<td><code>createdBy</code>, <code>createdAt</code></td>
+<td>objek, tanggal</td>
+<td>Pengunggah dan waktu unggah</td>
+</tr>
+</tbody>
+</table></div>
+<p>Foto disimpan di basis data, bukan di disk container, agar tidak hilang ketika container di-deploy ulang. Setiap unggahan menghasilkan dokumen baru dengan <code>_id</code> baru; foto lama milik produk yang sama langsung dihapus, begitu pula ketika <code>imageUrl</code> diganti URL luar atau dikosongkan.</p>
 <h3 id="counters"><code>counters</code></h3>
 <div class="table-wrap"><table>
 <thead>
@@ -1526,8 +1573,8 @@ app/db/*            Koneksi, pembuatan indeks, pembungkus transaksi</code></pre>
 </tr>
 <tr class="odd">
 <td><code>stock_movements</code></td>
-<td><code>productId</code> + <code>createdAt</code></td>
-<td>Riwayat stok per produk</td>
+<td><code>productId</code> + <code>createdAt</code>; <code>createdAt</code></td>
+<td>Riwayat stok per produk; deteksi hari stok habis oleh AI engine</td>
 </tr>
 <tr class="even">
 <td><code>audit_logs</code></td>
@@ -1708,6 +1755,16 @@ app/db/*            Koneksi, pembuatan indeks, pembungkus transaksi</code></pre>
 <td>409</td>
 <td><code>JOB_IN_PROGRESS</code></td>
 <td>Masih ada perhitungan AI yang menunggu atau berjalan</td>
+</tr>
+<tr class="odd">
+<td>413</td>
+<td><code>PAYLOAD_TOO_LARGE</code></td>
+<td>Foto produk melebihi 1,5 MB</td>
+</tr>
+<tr class="even">
+<td>415</td>
+<td><code>UNSUPPORTED_MEDIA_TYPE</code></td>
+<td>File yang diunggah bukan JPEG, PNG, atau WebP</td>
 </tr>
 <tr class="odd">
 <td>422</td>
@@ -1904,30 +1961,48 @@ app/db/*            Koneksi, pembuatan indeks, pembungkus transaksi</code></pre>
 <td>Body <code>{isActive}</code></td>
 </tr>
 <tr class="even">
+<td>PUT</td>
+<td><code>/products/{id}/image</code></td>
+<td>LOGISTIK</td>
+<td>Unggah foto. Body berupa isi file gambar (bukan multipart) dengan header <code>Content-Type</code> gambar; JPEG, PNG, atau WebP, maksimal 1,5 MB. Mengembalikan produk dengan <code>imageUrl</code> baru</td>
+</tr>
+<tr class="odd">
+<td>DELETE</td>
+<td><code>/products/{id}/image</code></td>
+<td>LOGISTIK</td>
+<td>Menghapus foto dan mengosongkan <code>imageUrl</code></td>
+</tr>
+<tr class="even">
+<td>GET</td>
+<td><code>/product-images/{imageId}</code></td>
+<td>publik</td>
+<td>Menyajikan foto hasil unggah dengan cache permanen dan <code>ETag</code>; tidak memerlukan token karena tag <code>&lt;img&gt;</code> tidak dapat mengirim header <code>Authorization</code></td>
+</tr>
+<tr class="odd">
 <td>GET</td>
 <td><code>/suppliers</code></td>
 <td>LOGISTIK, OWNER</td>
 <td>Daftar; filter <code>search</code>, <code>isActive</code></td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>GET</td>
 <td><code>/suppliers/{id}</code></td>
 <td>LOGISTIK, OWNER</td>
 <td>Detail</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>POST</td>
 <td><code>/suppliers</code></td>
 <td>LOGISTIK</td>
 <td>Body <code>{supplierCode, name, contactPerson?, phone?, email?, address?, notes?}</code></td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>PUT</td>
 <td><code>/suppliers/{id}</code></td>
 <td>LOGISTIK</td>
 <td>Body sama dengan pembuatan</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>PATCH</td>
 <td><code>/suppliers/{id}/status</code></td>
 <td>LOGISTIK</td>
@@ -3106,6 +3181,10 @@ season_t  = γ (y_t − level_t) + (1 − γ) s_{t−7}
 <td>Kata kunci pengguna di-<em>escape</em> sebelum dipakai sebagai ekspresi reguler MongoDB, sehingga tidak dapat disalahgunakan untuk query berat</td>
 </tr>
 <tr class="even">
+<td>Unggahan foto</td>
+<td>Jenis file ditentukan dari isi file (<em>magic bytes</em>), bukan dari header yang dikirim klien; ukuran dibatasi 1,5 MB di backend dan 2 MB di nginx; foto disajikan dengan <code>X-Content-Type-Options: nosniff</code>. Endpoint baca foto bersifat publik karena foto produk bukan data rahasia, dan ID foto acak sehingga tidak dapat ditebak secara berurutan</td>
+</tr>
+<tr class="odd">
 <td>Integritas transaksi</td>
 <td>Harga dan total dihitung ulang di server; stok dikurangi dengan pembaruan bersyarat di dalam transaksi basis data</td>
 </tr>
@@ -3164,12 +3243,12 @@ season_t  = γ (y_t − level_t) + (1 − γ) s_{t−7}
 <tr class="odd">
 <td>Backend</td>
 <td>pytest, pytest-asyncio</td>
-<td>63 kasus uji: unit (utilitas inti, rumus HPP) dan integrasi melalui HTTP terhadap basis data uji</td>
+<td>66 kasus uji: unit (utilitas inti, rumus HPP) dan integrasi melalui HTTP terhadap basis data uji</td>
 </tr>
 <tr class="even">
 <td>AI engine</td>
 <td>pytest</td>
-<td>12 kasus uji: Apriori, model forecasting, saran restock, dan siklus worker</td>
+<td>17 kasus uji: Apriori, model forecasting, saran restock, konfigurasi, siklus worker, dan pengulangan saat koneksi terputus</td>
 </tr>
 <tr class="odd">
 <td>Frontend</td>
@@ -3200,22 +3279,26 @@ season_t  = γ (y_t − level_t) + (1 − γ) s_{t−7}
 <td>CRUD, tanggal bergabung bawaan, validasi telepon, pencarian untuk kasir, kasir boleh mendaftarkan tetapi tidak boleh mengubah, penomoran otomatis melanjutkan data lama</td>
 </tr>
 <tr class="even">
+<td>Foto produk</td>
+<td>Unggah, ganti (foto lama terhapus), sajian publik dengan cache dan 304, validasi jenis dan ukuran, hak akses, penolakan <code>imageUrl</code> selain http(s) atau foto internal, penghapusan foto internal ketika diganti URL luar</td>
+</tr>
+<tr class="odd">
 <td>Katalog</td>
 <td>CRUD kategori dan supplier, produk baru selalu mulai dari stok nol, validasi dan duplikasi SKU/barcode, kasir tidak melihat harga pokok dan produk nonaktif, filter status stok, pencarian barcode persis</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>Transaksi</td>
 <td>Restock menambah stok dan menghitung HPP rata-rata bergerak; checkout berhasil; stok kurang tidak mengubah data apa pun; <em>rollback</em> ketika stok berubah di tengah transaksi; aturan pembayaran tunai dan QRIS; kasir hanya dapat membuka transaksi yang dibuat oleh akun kasir tersebut</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>Laporan dan dashboard</td>
 <td>Riwayat transaksi OWNER, ringkasan per peran, laporan stok, filter audit trail berdasarkan tanggal WIB</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td>Hak akses</td>
 <td>Matriks akses setiap peran terhadap endpoint</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td>Insight</td>
 <td>Saran kasir berdasarkan isi keranjang, akses aturan untuk OWNER dan prediksi untuk LOGISTIK, hitung ulang hanya ADMIN dan tidak dapat menumpuk</td>
 </tr>

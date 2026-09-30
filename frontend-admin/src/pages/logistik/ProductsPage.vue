@@ -3,6 +3,7 @@ import { PlusIcon, ScanBarcodeIcon, SquarePenIcon } from '@lucide/vue'
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import ActiveBadge from '@/components/common/ActiveBadge.vue'
+import ProductThumb from '@/components/common/ProductThumb.vue'
 import BarcodeScanner from '@/components/common/BarcodeScanner.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import ErrorAlert from '@/components/common/ErrorAlert.vue'
@@ -127,10 +128,15 @@ async function toggle() {
 
     <DataTable :columns="columns" :rows="list.rows.value" :loading="list.loading.value" row-key="id" empty="Belum ada produk">
       <template #cell-name="{ row }">
-        <p class="font-semibold">{{ row.name }}</p>
-        <p class="font-mono text-xs text-muted-foreground">
-          {{ row.sku }}<template v-if="row.barcode"> · {{ row.barcode }}</template>
-        </p>
+        <div class="flex items-center gap-3">
+          <ProductThumb :src="row.imageUrl" :alt="row.name" />
+          <div class="min-w-0">
+            <p class="font-semibold">{{ row.name }}</p>
+            <p class="font-mono text-xs text-muted-foreground">
+              {{ row.sku }}<template v-if="row.barcode"> · {{ row.barcode }}</template>
+            </p>
+          </div>
+        </div>
       </template>
       <template #cell-categoryName="{ row }"><span class="text-muted-foreground">{{ row.categoryName ?? '—' }}</span></template>
       <template #cell-sellingPrice="{ row }"><span class="font-semibold">{{ formatRupiah(row.sellingPrice) }}</span></template>

@@ -16,7 +16,12 @@ RUN pip install -r requirements.txt
 COPY app ./app
 COPY scripts ./scripts
 
-RUN useradd --create-home --uid 10001 appuser
+# /app/media = folder foto produk. Dibuat & dimiliki appuser DI DALAM image, supaya named volume yang
+# di-mount ke sini saat pertama kali dibuat ikut dimiliki appuser (kalau tidak: Permission denied saat unggah).
+RUN useradd --create-home --uid 10001 appuser \
+    && mkdir -p /app/media/product-images \
+    && chown -R appuser:appuser /app/media
+ENV MEDIA_ROOT=/app/media
 USER appuser
 
 EXPOSE 8000

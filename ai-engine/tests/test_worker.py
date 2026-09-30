@@ -79,3 +79,43 @@ def test_job_manual_diproses_dan_job_basi_digagalkan():
     assert db.ai_jobs.find_one({"_id": old})["status"] == "FAILED"
     assert db.ai_jobs.find_one({"_id": manual})["status"] == "DONE"
     assert db.insights.find_one({"_id": "forecast"}) is None  # hanya jenis yang diminta
+
+
+def test_koneksi_putus_sesaat_diulang(monkeypatch):
+    from pymongo.errors import AutoReconnect
+
+    from engine import worker
+
+    db, _ = make_db()
+    calls = {"n": 0}
+    real_run = worker.run
+
+    def flaky(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise AutoReconnect("operation cancelled")
+        return real_run(*args, **kwargs)
+
+    monkeypatch.setattr(worker, "run", flaky)
+    job = worker.create_job(db, "MANUAL")
+    job = worker.claim(db)
+    waits = []
+    assert worker.process(db, Settings(), job, sleep=waits.append) is True
+    assert calls["n"] == 2 and waits == [5]
+    assert db.ai_jobs.find_one({"_id": job["_id"]})["status"] == "DONE"
+
+
+def test_koneksi_terus_putus_jadi_failed(monkeypatch):
+    from pymongo.errors import AutoReconnect
+
+    from engine import worker
+
+    db, _ = make_db()
+    monkeypatch.setattr(worker, "run", lambda *a, **k: (_ for _ in ()).throw(AutoReconnect("down")))
+    worker.create_job(db, "MANUAL")
+    job = worker.claim(db)
+    waits = []
+    assert worker.process(db, Settings(), job, sleep=waits.append) is False
+    assert waits == [5, 15]
+    doc = db.ai_jobs.find_one({"_id": job["_id"]})
+    assert doc["status"] == "FAILED" and "terputus 3x" in doc["error"]

@@ -91,6 +91,10 @@ export const productApi = {
   lookup: (code: string) => data<Product>(api.get(`/products/lookup/${encodeURIComponent(code.trim())}`)),
   create: (body: ProductInput) => data<Product>(api.post('/products', body)),
   update: (id: string, body: ProductInput) => data<Product>(api.put(`/products/${id}`, body)),
+  /** Body = biner gambar (sudah diperkecil di browser), bukan multipart. */
+  uploadImage: (id: string, image: Blob) =>
+    data<Product>(api.put(`/products/${id}/image`, image, { headers: { 'Content-Type': image.type || 'image/jpeg' } })),
+  removeImage: (id: string) => data<Product>(api.delete(`/products/${id}/image`)),
   setStatus: (id: string, isActive: boolean) => data<Product>(api.patch(`/products/${id}/status`, { isActive })),
 }
 

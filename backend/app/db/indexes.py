@@ -47,6 +47,8 @@ INDEXES: dict[str, list[IndexModel]] = {
     ],
     "stock_movements": [
         IndexModel([("productId", ASCENDING), ("createdAt", DESCENDING)], name="product_created"),
+        # AI engine membaca semua pergerakan dalam rentang tanggal, urut waktu (deteksi hari stok habis)
+        IndexModel([("createdAt", ASCENDING)], name="created"),
     ],
     "audit_logs": [
         IndexModel([("createdAt", DESCENDING)], name="created"),

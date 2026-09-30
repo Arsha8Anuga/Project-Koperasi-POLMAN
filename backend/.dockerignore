@@ -1,4 +1,5 @@
 .env
+media/
 .env.*
 !.env.example
 .venv/

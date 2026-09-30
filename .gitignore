@@ -4,6 +4,8 @@
 !.env.example
 
 # ===== Python (backend) =====
+# Foto produk hasil unggah saat pengembangan lokal (di server: volume Docker "media")
+backend/media/
 __pycache__/
 *.py[cod]
 .venv/

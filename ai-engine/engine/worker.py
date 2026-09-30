@@ -18,6 +18,7 @@ import traceback
 from datetime import UTC, datetime, timedelta
 
 from pymongo import ReturnDocument
+from pymongo.errors import AutoReconnect
 
 from engine import __version__
 from engine.config import Settings
@@ -26,6 +27,10 @@ from engine.runner import COMPUTE, run
 log = logging.getLogger("engine.worker")
 
 STALE_RUNNING = timedelta(minutes=30)
+# Koneksi ke MongoDB jarak jauh bisa putus sesaat (heartbeat timeout → pool di-reset → query yang sedang
+# jalan dibatalkan: AutoReconnect / NetworkTimeout / _OperationCancelled). Perhitungan diulang dari awal.
+NETWORK_RETRIES = 3
+RETRY_BACKOFF_SECONDS = (5, 15)
 ALL_KINDS = list(COMPUTE)
 
 
@@ -102,21 +107,38 @@ def claim(db):
     )
 
 
-def process(db, settings: Settings, job) -> bool:
+def process(db, settings: Settings, job, sleep=time.sleep) -> bool:
     kinds = [k for k in (job.get("kinds") or ALL_KINDS) if k in COMPUTE]
     log.info("Job %s (%s) mulai: %s", job["_id"], job.get("trigger"), kinds)
-    try:
-        summary = run(db, settings, kinds, job["_id"])
-    except Exception as exc:  # noqa: BLE001 - job gagal harus tercatat, engine tetap hidup
-        log.error("Job %s gagal:\n%s", job["_id"], traceback.format_exc())
-        db["ai_jobs"].update_one(
-            {"_id": job["_id"]},
-            {"$set": {"status": "FAILED", "finishedAt": now(), "error": f"{type(exc).__name__}: {exc}"[:500]}},
-        )
-        return False
+    for attempt in range(1, NETWORK_RETRIES + 1):
+        try:
+            summary = run(db, settings, kinds, job["_id"])
+            break
+        except AutoReconnect as exc:
+            if attempt == NETWORK_RETRIES:
+                return _fail(
+                    db, job, f"Koneksi MongoDB terputus {attempt}x berturut-turut ({type(exc).__name__}: {exc})"
+                )
+            wait = RETRY_BACKOFF_SECONDS[min(attempt, len(RETRY_BACKOFF_SECONDS)) - 1]
+            log.warning("Job %s: koneksi MongoDB terputus (%s), ulang %d detik lagi", job["_id"], exc, wait)
+            sleep(wait)
+        except Exception as exc:  # noqa: BLE001 - job gagal harus tercatat, engine tetap hidup
+            log.error("Job %s gagal:\n%s", job["_id"], traceback.format_exc())
+            return _fail(db, job, f"{type(exc).__name__}: {exc}")
     db["ai_jobs"].update_one({"_id": job["_id"]}, {"$set": {"status": "DONE", "finishedAt": now(), "summary": summary}})
     log.info("Job %s selesai", job["_id"])
     return True
+
+
+def _fail(db, job, message: str) -> bool:
+    log.error("Job %s gagal: %s", job["_id"], message)
+    try:
+        db["ai_jobs"].update_one(
+            {"_id": job["_id"]}, {"$set": {"status": "FAILED", "finishedAt": now(), "error": message[:500]}}
+        )
+    except AutoReconnect:
+        log.error("Status FAILED tidak bisa ditulis; job akan ditandai gagal otomatis setelah 30 menit")
+    return False
 
 
 def tick(db, settings: Settings) -> bool:

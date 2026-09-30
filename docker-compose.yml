@@ -16,6 +16,10 @@ services:
       # Frontend memanggil API lewat domain yang sama (/api), jadi CORS tidak dibutuhkan.
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       APP_TZ: Asia/Jakarta
+    volumes:
+      # Foto produk yang diunggah. Named volume: tidak hilang saat redeploy / image dibangun ulang.
+      # Di Portainer muncul sebagai volume "koperasi_media" (Volumes). Ikut di-backup bersama database.
+      - media:/app/media
     # Tidak ada "ports": backend hanya bisa dijangkau container kasir/admin lewat jaringan internal stack
     # (nginx di kedua frontend memanggilnya dengan nama service "backend").
 
@@ -56,3 +60,6 @@ services:
     depends_on: [backend]
     ports:
       - "${ADMIN_BIND:-0.0.0.0}:${ADMIN_PORT:-8082}:80"
+
+volumes:
+  media:

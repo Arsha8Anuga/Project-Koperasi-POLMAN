@@ -32,7 +32,7 @@ Varian tambahan proyek: `Badge` → `soft`, `success`, `warning`, `danger`; `Ale
 ## Tema
 
 Token warna ada di `src/style.css` (abu · navy · biru tua, mode terang & gelap). File ini, `composables/useTheme.ts`,
-`lib/utils.ts`, `utils/format.ts`, `composables/useScannerInput.ts`,
+`lib/utils.ts`, `utils/format.ts`, `utils/media.ts`, `composables/useScannerInput.ts`,
 `components/common/{ThemeToggle,UserMenu,PagePagination,BrandMark,BarcodeScanner}.vue`, dan isi
 `components/ui/` yang sama **harus identik** di `frontend-kasir` dan `frontend-admin` — ubah di satu app, salin ke app lain.
 

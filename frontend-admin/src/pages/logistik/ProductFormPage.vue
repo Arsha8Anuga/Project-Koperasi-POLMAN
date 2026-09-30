@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ArrowLeftIcon, ScanBarcodeIcon } from '@lucide/vue'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { ArrowLeftIcon, ImageOffIcon, ImagePlusIcon, ScanBarcodeIcon, Trash2Icon } from '@lucide/vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BarcodeScanner from '@/components/common/BarcodeScanner.vue'
 import ErrorAlert from '@/components/common/ErrorAlert.vue'
@@ -18,6 +18,8 @@ import { useScannerInput } from '@/composables/useScannerInput'
 import { useToast } from '@/composables/useToast'
 import type { Category, Product, ProductInput } from '@/types/api'
 import { formatRupiah } from '@/utils/format'
+import { compressImage } from '@/utils/image'
+import { isUploadedImage, mediaUrl } from '@/utils/media'
 
 const route = useRoute()
 const router = useRouter()
@@ -41,6 +43,46 @@ const form = reactive({
   minimumStock: 0,
   imageUrl: '',
 })
+
+// ---------- foto produk: unggah (diperkecil di browser) atau URL gambar luar sebagai alternatif ----------
+const fileInput = ref<HTMLInputElement | null>(null)
+const pendingBlob = ref<Blob | null>(null) // diunggah SETELAH produk tersimpan (produk baru belum punya ID)
+const pendingPreview = ref<string | null>(null)
+const compressing = ref(false)
+const imageBroken = ref(false)
+
+const previewSrc = computed(() => pendingPreview.value ?? mediaUrl(form.imageUrl.trim()))
+const hasUploaded = computed(() => !!pendingBlob.value || isUploadedImage(form.imageUrl))
+watch(previewSrc, () => (imageBroken.value = false))
+
+function setPending(blob: Blob | null) {
+  if (pendingPreview.value) URL.revokeObjectURL(pendingPreview.value)
+  pendingBlob.value = blob
+  pendingPreview.value = blob ? URL.createObjectURL(blob) : null
+}
+onBeforeUnmount(() => setPending(null))
+
+async function onFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = '' // supaya memilih file yang sama lagi tetap memicu change
+  if (!file) return
+  compressing.value = true
+  try {
+    setPending(await compressImage(file))
+    delete errors.imageUrl
+  } catch (err) {
+    toast.error(err instanceof Error ? err.message : 'Gagal memproses foto')
+  } finally {
+    compressing.value = false
+  }
+}
+
+/** Foto yang belum disimpan dibatalkan; foto/URL yang sudah tersimpan dikosongkan (dihapus saat Simpan). */
+function clearImage() {
+  if (pendingBlob.value) setPending(null)
+  else form.imageUrl = ''
+}
 
 // ---------- barcode: scanner USB / kamera → isi field barcode ----------
 const scanOpen = ref(false)
@@ -97,6 +139,8 @@ function validate(): boolean {
   if (!form.unit.trim()) errors.unit = 'Satuan wajib diisi'
   if (!Number.isInteger(form.sellingPrice) || form.sellingPrice < 0) errors.sellingPrice = 'Harga harus bilangan bulat ≥ 0'
   if (!Number.isInteger(form.minimumStock) || form.minimumStock < 0) errors.minimumStock = 'Harus bilangan bulat ≥ 0'
+  const url = form.imageUrl.trim()
+  if (url && !isUploadedImage(url) && !/^https?:\/\//i.test(url)) errors.imageUrl = 'Harus diawali http:// atau https://'
   return Object.keys(errors).length === 0
 }
 
@@ -115,7 +159,18 @@ async function submit() {
     imageUrl: form.imageUrl.trim() || null,
   }
   try {
-    const saved = id.value ? await productApi.update(id.value, body) : await productApi.create(body)
+    let saved = id.value ? await productApi.update(id.value, body) : await productApi.create(body)
+    if (pendingBlob.value) {
+      try {
+        saved = await productApi.uploadImage(saved.id, pendingBlob.value)
+        setPending(null)
+      } catch (e) {
+        // data produk sudah tersimpan; hanya fotonya yang gagal → tetap di form (mode ubah) untuk coba lagi
+        toast.error(`Produk tersimpan, tetapi foto gagal diunggah: ${errorMessage(e)}`)
+        if (!id.value) await router.replace({ name: 'product-edit', params: { id: saved.id } })
+        return
+      }
+    }
     toast.success(id.value ? 'Produk diperbarui' : `Produk ${saved.sku} dibuat`)
     router.push({ name: 'products' })
   } catch (e) {
@@ -203,8 +258,47 @@ async function submit() {
               />
             </FormField>
           </div>
-          <FormField label="URL gambar" for="image" :error="errors.imageUrl" hint="Opsional">
-            <Input id="image" v-model="form.imageUrl" type="url" placeholder="https://…" :aria-invalid="!!errors.imageUrl || undefined" />
+          <FormField label="Foto produk" for="image" :error="errors.imageUrl" hint="Opsional. Foto diperkecil otomatis sebelum diunggah.">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
+              <div class="flex size-28 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-muted">
+                <img
+                  v-if="previewSrc && !imageBroken"
+                  :src="previewSrc"
+                  :alt="form.name || 'Foto produk'"
+                  class="h-full w-full object-cover"
+                  @error="imageBroken = true"
+                />
+                <div v-else class="flex flex-col items-center gap-1 px-2 text-center text-xs text-muted-foreground">
+                  <ImageOffIcon class="size-6 opacity-60" />
+                  {{ previewSrc ? 'Gambar tidak dapat dimuat' : 'Belum ada foto' }}
+                </div>
+              </div>
+              <div class="flex min-w-0 flex-1 flex-col gap-3">
+                <div class="flex flex-wrap gap-2">
+                  <Button type="button" variant="outline" :disabled="compressing" @click="fileInput?.click()">
+                    <Spinner v-if="compressing" />
+                    <ImagePlusIcon v-else />
+                    {{ previewSrc ? 'Ganti foto' : 'Unggah foto' }}
+                  </Button>
+                  <Button v-if="previewSrc" type="button" variant="ghost" class="text-destructive hover:text-destructive" @click="clearImage">
+                    <Trash2Icon /> {{ pendingBlob ? 'Batal' : 'Hapus foto' }}
+                  </Button>
+                  <input ref="fileInput" type="file" accept="image/*" class="hidden" @change="onFileChange" />
+                </div>
+                <p v-if="pendingBlob" class="text-xs text-muted-foreground">
+                  Foto baru ({{ Math.round(pendingBlob.size / 1024) }} KB) diunggah saat Simpan.
+                </p>
+                <p v-else-if="hasUploaded" class="text-xs text-muted-foreground">Foto tersimpan di server.</p>
+                <Input
+                  v-else
+                  id="image"
+                  v-model="form.imageUrl"
+                  type="url"
+                  placeholder="atau tempel URL gambar: https://…"
+                  :aria-invalid="!!errors.imageUrl || undefined"
+                />
+              </div>
+            </div>
           </FormField>
         </CardContent>
         <Separator class="my-6" />

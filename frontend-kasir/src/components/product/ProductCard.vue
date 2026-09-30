@@ -1,12 +1,21 @@
 <script setup lang="ts">
 import { PlusIcon } from '@lucide/vue'
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import type { Product } from '@/types'
 import { formatRupiah } from '@/utils/format'
+import { mediaUrl } from '@/utils/media'
 
 const props = defineProps<{ product: Product; inCart: number }>()
 const emit = defineEmits<{ add: [Product] }>()
+
+// gambar gagal dimuat (URL mati / foto dihapus) → kembali ke inisial produk
+const imageBroken = ref(false)
+const imageSrc = computed(() => (imageBroken.value ? null : mediaUrl(props.product.imageUrl)))
+watch(
+  () => props.product.imageUrl,
+  () => (imageBroken.value = false),
+)
 
 const soldOut = computed(() => props.product.stock <= 0)
 const maxed = computed(() => props.inCart >= props.product.stock)
@@ -41,7 +50,7 @@ function add() {
     @click="add"
   >
     <div class="relative flex h-28 items-center justify-center bg-muted">
-      <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.name" class="h-full w-full object-cover" loading="lazy" />
+      <img v-if="imageSrc" :src="imageSrc" :alt="product.name" class="h-full w-full object-cover" loading="lazy" @error="imageBroken = true" />
       <span v-else class="text-3xl font-extrabold tracking-tight text-muted-foreground/40 select-none">{{ initials }}</span>
 
       <Badge :variant="stockVariant" class="absolute top-2.5 right-2.5 shadow-sm">

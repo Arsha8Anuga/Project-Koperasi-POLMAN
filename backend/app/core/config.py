@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 480
 
+    # Folder foto produk yang diunggah. Docker: /app/media (named volume "media" di docker-compose.yml).
+    media_root: str = "media"
+
     cors_origins: str = "http://localhost:5173,http://localhost:5174"
     app_tz: str = "Asia/Jakarta"
 

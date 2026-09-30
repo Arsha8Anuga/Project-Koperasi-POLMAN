@@ -10,6 +10,7 @@ from app.api.v1 import (
     dashboard,
     insights,
     members,
+    product_images,
     products,
     reports,
     restocks,
@@ -32,6 +33,7 @@ api_router.include_router(dashboard.router)
 # --- BE-2 ---
 api_router.include_router(categories.router)
 api_router.include_router(products.router)
+api_router.include_router(product_images.router)  # foto produk (publik)
 api_router.include_router(suppliers.router)
 api_router.include_router(restocks.router)
 api_router.include_router(stock.router)  # /stock/movements + /reports/stock
