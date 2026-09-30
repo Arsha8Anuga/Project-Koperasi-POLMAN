@@ -11,8 +11,10 @@ defineOptions({
 
 const props = defineProps<{ modelValue?: AcceptableValue | AcceptableValue[], class?: HTMLAttributes["class"] }>()
 
+// Upstream shadcn-vue menulis `"update:modelValue": AcceptableValue` (tanpa tuple), yang oleh vue-tsc
+// dibaca sebagai event TANPA argumen → `@update:model-value="(v) => ..."` gagal dicek tipe.
 const emit = defineEmits<{
-  "update:modelValue": AcceptableValue
+  "update:modelValue": [value: AcceptableValue]
 }>()
 
 const modelValue = useVModel(props, "modelValue", emit, {
