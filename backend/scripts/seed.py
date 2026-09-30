@@ -197,6 +197,8 @@ async def reset_data(db) -> None:
         "stock_movements",
         "counters",
         "audit_logs",
+        "insights",
+        "ai_jobs",
         "products",
         "categories",
         "suppliers",
@@ -617,7 +619,23 @@ async def main(args: argparse.Namespace) -> None:
                 else:
                     skipped += 1
 
-        print("Seed selesai.")
+        # minta AI engine langsung menghitung dari data baru (diproses begitu engine jalan)
+        if not await db.ai_jobs.find_one({"status": {"$in": ["PENDING", "RUNNING"]}}):
+            await db.ai_jobs.insert_one(
+                {
+                    "status": "PENDING",
+                    "trigger": "SEED",
+                    "kinds": ["association_rules", "forecast"],
+                    "requestedBy": None,
+                    "requestedAt": utcnow(),
+                    "startedAt": None,
+                    "finishedAt": None,
+                    "error": None,
+                    "summary": None,
+                }
+            )
+
+        print("Seed selesai. AI engine akan menghitung ulang analisis dari data ini.")
         print(f"  Transaksi restock : {restocks}")
         print(f"  Transaksi penjualan: {sales} (dilewati karena semua barang habis: {skipped})")
         print("Akun demo (password sama untuk semua akun buatan seed):")

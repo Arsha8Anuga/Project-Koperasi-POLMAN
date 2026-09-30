@@ -15,7 +15,8 @@ export type AuditAction =
   | 'RESET_PASSWORD'
   | 'SALE'
   | 'RESTOCK'
-export type AuditModule = 'AUTH' | 'USER' | 'MEMBER' | 'CATEGORY' | 'PRODUCT' | 'SUPPLIER' | 'RESTOCK' | 'SALE'
+  | 'RECOMPUTE'
+export type AuditModule = 'AUTH' | 'USER' | 'MEMBER' | 'CATEGORY' | 'PRODUCT' | 'SUPPLIER' | 'RESTOCK' | 'SALE' | 'AI'
 
 export interface ApiResponse<T> {
   success: true

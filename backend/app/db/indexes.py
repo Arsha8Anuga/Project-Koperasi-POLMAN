@@ -53,6 +53,11 @@ INDEXES: dict[str, list[IndexModel]] = {
         IndexModel([("user.id", ASCENDING), ("createdAt", DESCENDING)], name="user_created"),
         IndexModel([("module", ASCENDING), ("createdAt", DESCENDING)], name="module_created"),
     ],
+    # antrean AI engine (collection insights & ai_engine_status cukup _id)
+    "ai_jobs": [
+        IndexModel([("status", ASCENDING), ("requestedAt", ASCENDING)], name="status_requested"),
+        IndexModel([("requestedAt", DESCENDING)], name="requested"),
+    ],
 }
 
 

@@ -8,6 +8,7 @@ from app.api.v1 import (
     auth,
     categories,
     dashboard,
+    insights,
     members,
     products,
     reports,
@@ -39,3 +40,6 @@ api_router.include_router(stock.router)  # /stock/movements + /reports/stock
 api_router.include_router(sales.router)
 api_router.include_router(transactions.router)
 api_router.include_router(reports.router)
+
+# --- AI engine (hasil dibaca dari collection insights) ---
+api_router.include_router(insights.router)

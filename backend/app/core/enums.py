@@ -73,6 +73,7 @@ class AuditAction(StrEnum):
     RESET_PASSWORD = "RESET_PASSWORD"
     SALE = "SALE"
     RESTOCK = "RESTOCK"
+    RECOMPUTE = "RECOMPUTE"  # admin meminta AI engine menghitung ulang
 
 
 class AuditModule(StrEnum):
@@ -84,3 +85,23 @@ class AuditModule(StrEnum):
     SUPPLIER = "SUPPLIER"
     RESTOCK = "RESTOCK"
     SALE = "SALE"
+    AI = "AI"
+
+
+# ---------- AI engine (kontrak: collection insights, ai_jobs, ai_engine_status) ----------
+class InsightKind(StrEnum):
+    ASSOCIATION_RULES = "association_rules"
+    FORECAST = "forecast"
+
+
+class JobStatus(StrEnum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    DONE = "DONE"
+    FAILED = "FAILED"
+
+
+class JobTrigger(StrEnum):
+    MANUAL = "MANUAL"  # tombol "Hitung ulang" (ADMIN)
+    SCHEDULE = "SCHEDULE"  # jadwal otomatis engine
+    SEED = "SEED"  # akhir skrip seed

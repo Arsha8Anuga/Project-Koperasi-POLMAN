@@ -22,6 +22,7 @@ const modules: Record<AuditModule, string> = {
   SUPPLIER: 'Supplier',
   RESTOCK: 'Restock',
   SALE: 'Penjualan',
+  AI: 'AI Engine',
 }
 const actions: Record<AuditAction, string> = {
   LOGIN: 'Masuk',
@@ -33,6 +34,7 @@ const actions: Record<AuditAction, string> = {
   RESET_PASSWORD: 'Reset password',
   SALE: 'Penjualan',
   RESTOCK: 'Restock',
+  RECOMPUTE: 'Hitung ulang AI',
 }
 const actionTone = (a: AuditAction) =>
   a === 'DEACTIVATE' || a === 'RESET_PASSWORD'
