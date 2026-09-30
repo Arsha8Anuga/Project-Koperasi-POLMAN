@@ -43,8 +43,8 @@ class RequestContextMiddleware:
 
 
 def _client_ip(scope: Scope) -> str | None:
-    # X-Forwarded-For sengaja TIDAK dibaca: tanpa reverse proxy, header itu bisa dipalsukan
-    # siapa saja dan mengotori audit trail. Kalau nanti pakai nginx, jalankan uvicorn dengan
-    # `--proxy-headers --forwarded-allow-ips=<ip-nginx>` — uvicorn yang mengisi scope["client"].
+    # X-Forwarded-For sengaja TIDAK dibaca di sini: tanpa reverse proxy, header itu bisa dipalsukan
+    # siapa saja dan mengotori audit trail. Di Docker, uvicorn dijalankan dengan `--proxy-headers`
+    # (lihat Dockerfile), jadi uvicorn sendiri yang mengisi scope["client"] dengan IP asli pengguna.
     client = scope.get("client")
     return client[0] if client else None

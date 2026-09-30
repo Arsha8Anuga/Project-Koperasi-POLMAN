@@ -1,0 +1,42 @@
+# Stack Portainer "koperasi" — dibuild langsung dari repo Git (Stacks → Add stack → Repository).
+# Rahasia TIDAK ditulis di sini: isi di bagian "Environment variables" stack (lihat stack.env.example).
+# MongoDB tidak ikut stack ini (pakai server Mongo yang sudah ada lewat MONGODB_URI).
+
+services:
+  backend:
+    build:
+      context: ./backend
+    image: koperasi-backend:latest
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: ${MONGODB_URI:?MONGODB_URI wajib diisi}
+      MONGODB_DB: ${MONGODB_DB:-koperasi_demo}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET wajib diisi (minimal 32 karakter)}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-480}
+      # Frontend memanggil API lewat domain yang sama (/api), jadi CORS tidak dibutuhkan.
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      APP_TZ: Asia/Jakarta
+    # Tidak ada "ports": backend hanya bisa dijangkau container kasir/admin lewat jaringan internal stack
+    # (nginx di kedua frontend memanggilnya dengan nama service "backend").
+
+  kasir:
+    build:
+      context: ./frontend-kasir
+      args:
+        VITE_API_URL: /api/v1
+    image: koperasi-kasir:latest
+    restart: unless-stopped
+    depends_on: [backend]
+    ports:
+      - "${KASIR_BIND:-0.0.0.0}:${KASIR_PORT:-8081}:80"
+
+  admin:
+    build:
+      context: ./frontend-admin
+      args:
+        VITE_API_URL: /api/v1
+    image: koperasi-admin:latest
+    restart: unless-stopped
+    depends_on: [backend]
+    ports:
+      - "${ADMIN_BIND:-0.0.0.0}:${ADMIN_PORT:-8082}:80"

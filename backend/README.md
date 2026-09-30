@@ -5,7 +5,7 @@
 ```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate      # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt                    # runtime + pytest + ruff (image Docker hanya requirements.txt)
 cp .env.example .env                                   # isi MONGODB_URI, JWT_SECRET, TEST_MONGODB_DB
 python -m scripts.create_initial_users                 # owner / logistik / admin / kasir1, password: koperasi123
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000

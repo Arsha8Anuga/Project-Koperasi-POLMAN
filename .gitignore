@@ -39,7 +39,9 @@ Thumbs.db
 
 # ===== Lain-lain =====
 *.log
-.vscode
 # dump / backup database lokal
 dump/
 *.archive
+
+# Nilai asli env stack Portainer (yang di-commit hanya stack.env.example)
+stack.env
