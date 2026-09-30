@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PackageCheckIcon, PackageXIcon, TriangleAlertIcon } from '@lucide/vue'
+import { PackageCheckIcon, PackageXIcon, SparklesIcon, TriangleAlertIcon } from '@lucide/vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import ErrorAlert from '@/components/common/ErrorAlert.vue'
 import FilterToggle from '@/components/common/FilterToggle.vue'
@@ -8,6 +8,8 @@ import StatCard from '@/components/common/StatCard.vue'
 import StockBadge from '@/components/common/StockBadge.vue'
 import ChartCard from '@/components/charts/ChartCard.vue'
 import StockChart from '@/components/charts/StockChart.vue'
+import StockoutRiskChart from '@/components/charts/StockoutRiskChart.vue'
+import ForecastDialog from '@/components/insights/ForecastDialog.vue'
 import DataTable from '@/components/table/DataTable.vue'
 import TablePagination from '@/components/table/TablePagination.vue'
 import type { Column } from '@/components/table/types'
@@ -17,10 +19,11 @@ import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { usePagination } from '@/composables/usePagination'
-import { categoryApi, stockApi } from '@/services/api'
+import { categoryApi, insightApi, stockApi } from '@/services/api'
 import { errorMessage } from '@/services/apiClient'
-import type { Category, StockMovement, StockReport, StockStatus } from '@/types/api'
+import type { Category, ForecastList, ForecastSummary, StockMovement, StockReport, StockStatus } from '@/types/api'
 import { formatDateTime, formatNumber, todayWib } from '@/utils/format'
+import { formatDays, urgency } from '@/utils/insight'
 
 const tab = ref<string | number>('stock')
 const categories = ref<Category[]>([])
@@ -57,12 +60,38 @@ const chartItems = computed(() =>
     .slice(0, 25),
 )
 
+// ---------- prediksi AI engine ----------
+const forecast = ref<ForecastList | null>(null)
+const forecastLoading = ref(true)
+const forecastError = ref('')
+const selected = ref<string | null>(null)
+
+async function loadForecast() {
+  forecastLoading.value = true
+  try {
+    forecast.value = await insightApi.forecast()
+  } catch (e) {
+    forecastError.value = errorMessage(e, 'Gagal memuat prediksi')
+  } finally {
+    forecastLoading.value = false
+  }
+}
+
+const forecastById = computed(() => new Map((forecast.value?.products ?? []).map((p) => [p.productId, p])))
+const leadTime = computed(() => Number(forecast.value?.meta?.params.lead_time_days ?? 3))
+const reviewDays = computed(() => Number(forecast.value?.meta?.params.review_days ?? 7))
+const needRestock = computed(() => (forecast.value?.products ?? []).filter((p) => p.reorderNeeded).length)
+const tone = { danger: 'danger', warning: 'warning', ok: 'soft' } as const
+const fc = (row: { productId: string }): ForecastSummary | undefined => forecastById.value.get(row.productId)
+
 const stockColumns: Column[] = [
   { key: 'name', label: 'Produk' },
   { key: 'categoryName', label: 'Kategori' },
   { key: 'stock', label: 'Stok', align: 'right' },
   { key: 'minimumStock', label: 'Minimum', align: 'right' },
   { key: 'stockStatus', label: 'Status' },
+  { key: 'daysLeft', label: 'Habis dalam (AI)' },
+  { key: 'suggested', label: 'Saran restock', align: 'right' },
 ]
 
 const moves = usePagination<StockMovement, { type: string; from: string; to: string }>((q) => stockApi.movements(q), {
@@ -82,6 +111,7 @@ watch(tab, (t) => t === 'movements' && moves.rows.value.length === 0 && moves.lo
 
 onMounted(async () => {
   loadReport()
+  loadForecast()
   categories.value = await categoryApi.list().catch(() => [])
 })
 </script>
@@ -96,11 +126,40 @@ onMounted(async () => {
     </PageHeader>
 
     <TabsContent value="stock">
-      <div class="mb-6 grid gap-4 sm:grid-cols-3">
+      <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Aman" :value="formatNumber(report?.counts.OK)" :icon="PackageCheckIcon" tone="success" />
         <StatCard label="Menipis" :value="formatNumber(report?.counts.LOW)" :icon="TriangleAlertIcon" tone="warning" />
         <StatCard label="Habis" :value="formatNumber(report?.counts.OUT)" :icon="PackageXIcon" tone="danger" />
+        <StatCard
+          label="Perlu restock (prediksi AI)"
+          :value="forecast?.meta ? formatNumber(needRestock) : '—'"
+          :icon="SparklesIcon"
+          tone="primary"
+          :hint="`stok ≤ kebutuhan ${leadTime} hari + stok pengaman`"
+        />
       </div>
+
+      <ChartCard
+        class="mb-6"
+        title="Produk paling mendesak"
+        :subtitle="
+          forecast?.meta
+            ? `Perkiraan hari sampai stok habis (AI engine, ${formatDateTime(forecast.meta.generatedAt)}). Merah = kurang dari waktu kirim supplier (${leadTime} hari). Klik batang untuk detail.`
+            : 'Perkiraan hari sampai stok habis dari AI engine.'
+        "
+        :loading="forecastLoading"
+        :error="forecastError"
+        :empty="!forecast?.products.some((p) => p.daysUntilStockout !== null)"
+        :height="340"
+      >
+        <StockoutRiskChart
+          v-if="forecast"
+          :items="forecast.products"
+          :lead-time="leadTime"
+          :review-days="reviewDays"
+          @select="selected = $event"
+        />
+      </ChartCard>
 
       <ChartCard
         class="mb-6"
@@ -122,7 +181,15 @@ onMounted(async () => {
           </NativeSelect>
           <FilterToggle v-model="status" :options="statusOptions" label="Status stok" />
         </div>
-        <DataTable :columns="stockColumns" :rows="report?.items ?? []" :loading="loading" row-key="productId" empty="Tidak ada produk">
+        <DataTable
+          :columns="stockColumns"
+          :rows="report?.items ?? []"
+          :loading="loading"
+          row-key="productId"
+          empty="Tidak ada produk"
+          clickable
+          @row-click="(r) => (selected = r.productId)"
+        >
           <template #cell-name="{ row }">
             <p class="font-semibold">{{ row.name }}</p>
             <p class="font-mono text-xs text-muted-foreground">{{ row.sku }}</p>
@@ -130,6 +197,16 @@ onMounted(async () => {
           <template #cell-categoryName="{ row }"><span class="text-muted-foreground">{{ row.categoryName ?? '—' }}</span></template>
           <template #cell-stock="{ row }"><span class="font-bold">{{ row.stock }}</span></template>
           <template #cell-stockStatus="{ row }"><StockBadge :status="row.stockStatus" /></template>
+          <template #cell-daysLeft="{ row }">
+            <Badge v-if="fc(row)" :variant="tone[urgency(fc(row)!.daysUntilStockout, leadTime, reviewDays)]">
+              {{ formatDays(fc(row)!.daysUntilStockout) }}
+            </Badge>
+            <span v-else class="text-muted-foreground">—</span>
+          </template>
+          <template #cell-suggested="{ row }">
+            <span v-if="fc(row) && fc(row)!.suggestedQty > 0" class="num font-semibold">{{ fc(row)!.suggestedQty }}</span>
+            <span v-else class="text-muted-foreground">—</span>
+          </template>
         </DataTable>
       </Card>
     </TabsContent>
@@ -172,4 +249,6 @@ onMounted(async () => {
       </Card>
     </TabsContent>
   </Tabs>
+
+  <ForecastDialog :product-id="selected" @close="selected = null" />
 </template>

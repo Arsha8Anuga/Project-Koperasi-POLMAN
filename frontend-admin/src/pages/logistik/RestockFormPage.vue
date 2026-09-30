@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@lucide/vue'
+import { ArrowLeftIcon, PlusIcon, SparklesIcon, TrashIcon } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import BarcodeInput from '@/components/common/BarcodeInput.vue'
@@ -14,12 +14,13 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { productApi, restockApi, supplierApi } from '@/services/api'
+import { insightApi, productApi, restockApi, supplierApi } from '@/services/api'
 import { ApiException, errorMessage } from '@/services/apiClient'
 import { useScannerInput } from '@/composables/useScannerInput'
 import { useToast } from '@/composables/useToast'
-import type { Product, Supplier } from '@/types/api'
+import type { ForecastSummary, Product, Supplier } from '@/types/api'
 import { formatRupiah } from '@/utils/format'
+import { formatDays } from '@/utils/insight'
 
 const router = useRouter()
 const toast = useToast()
@@ -47,10 +48,47 @@ const used = computed(() => new Set(rows.map((r) => r.productId).filter(Boolean)
 const options = (row: Row) => products.value.filter((p) => p.id === row.productId || !used.value.has(p.id))
 const total = computed(() => rows.reduce((n, r) => n + (r.quantity || 0) * (r.purchasePrice || 0), 0))
 
-function onPick(row: Row, value: unknown) {
+// ---------- saran AI engine (forecasting) ----------
+const forecasts = ref(new Map<string, ForecastSummary>())
+const aiSuggested = computed(() => [...forecasts.value.values()].filter((f) => f.reorderNeeded && f.suggestedQty > 0))
+
+async function loadForecast() {
+  try {
+    const res = await insightApi.forecast()
+    forecasts.value = new Map(res.products.map((f) => [f.productId, f]))
+  } catch {
+    /* prediksi opsional: form tetap bisa dipakai tanpa AI */
+  }
+}
+
+/** useSuggestion=false saat scan: tiap scan = satu unit, jadi qty tidak diisi saran. */
+function onPick(row: Row, value: unknown, useSuggestion = true) {
   row.productId = String(value ?? '')
   const p = byId.value.get(row.productId)
   if (p && !row.purchasePrice) row.purchasePrice = p.lastPurchasePrice || p.costPrice
+  // qty masih bawaan (1) → isi dengan saran AI; kalau sudah diubah user, jangan ditimpa
+  const f = forecasts.value.get(row.productId)
+  if (useSuggestion && f && f.suggestedQty > 0 && row.quantity === 1) row.quantity = f.suggestedQty
+}
+
+/** Tambah semua produk yang menurut prediksi perlu restock, dengan qty sesuai saran. */
+function addAiSuggestions() {
+  let added = 0
+  for (const f of aiSuggested.value) {
+    if (rows.some((r) => r.productId === f.productId)) continue
+    const p = byId.value.get(f.productId)
+    if (!p) continue
+    let row = rows.find((r) => !r.productId)
+    if (!row) {
+      if (rows.length >= 50) break
+      rows.push({ key: seq++, productId: '', quantity: 1, purchasePrice: 0 })
+      row = rows[rows.length - 1]
+    }
+    if (!row) break
+    onPick(row, p.id)
+    added++
+  }
+  toast.success(added ? `${added} produk saran AI ditambahkan — sesuaikan dengan supplier yang dipilih` : 'Semua saran AI sudah ada di tabel')
 }
 
 function addRow() {
@@ -77,7 +115,7 @@ function addProductRow(p: Product) {
   }
   if (!row) return
   if (!byId.value.has(p.id)) products.value = [...products.value, p]
-  onPick(row, p.id)
+  onPick(row, p.id, false)
   toast.success(`${p.name} ditambahkan`)
 }
 
@@ -114,7 +152,7 @@ async function loadProducts() {
 
 onMounted(async () => {
   try {
-    const [s] = await Promise.all([supplierApi.list({ limit: 100, isActive: true }), loadProducts()])
+    const [s] = await Promise.all([supplierApi.list({ limit: 100, isActive: true }), loadProducts(), loadForecast()])
     suppliers.value = s.data
   } catch (e) {
     error.value = errorMessage(e, 'Gagal memuat data')
@@ -182,7 +220,10 @@ async function submit() {
     <Card class="gap-0 overflow-hidden py-0">
       <CardHeader class="border-b pt-4 pb-4!">
         <CardTitle class="flex items-center gap-2 text-base">Produk <Badge variant="soft">{{ rows.length }}</Badge></CardTitle>
-        <CardAction>
+        <CardAction class="flex flex-wrap justify-end gap-2">
+          <Button v-if="aiSuggested.length" type="button" variant="outline" size="sm" @click="addAiSuggestions">
+            <SparklesIcon /> Saran AI ({{ aiSuggested.length }})
+          </Button>
           <Button type="button" variant="secondary" size="sm" :disabled="rows.length >= 50" @click="addRow"><PlusIcon /> Tambah baris</Button>
         </CardAction>
       </CardHeader>
@@ -228,6 +269,10 @@ async function submit() {
                 <p v-if="byId.get(row.productId)" class="mt-1 text-xs text-muted-foreground">
                   HPP sekarang {{ formatRupiah(byId.get(row.productId)!.costPrice) }} · beli terakhir
                   {{ formatRupiah(byId.get(row.productId)!.lastPurchasePrice) }}
+                </p>
+                <p v-if="forecasts.get(row.productId)" class="mt-0.5 flex items-center gap-1 text-xs text-accent-foreground">
+                  <SparklesIcon class="size-3" /> Saran AI: {{ forecasts.get(row.productId)!.suggestedQty || 'belum perlu' }}
+                  · stok habis {{ formatDays(forecasts.get(row.productId)!.daysUntilStockout) }}
                 </p>
               </TableCell>
               <TableCell class="py-3 align-top">
@@ -275,6 +320,10 @@ async function submit() {
               <p v-if="byId.get(row.productId)" class="mt-1 text-xs text-muted-foreground">
                 HPP {{ formatRupiah(byId.get(row.productId)!.costPrice) }} · beli terakhir
                 {{ formatRupiah(byId.get(row.productId)!.lastPurchasePrice) }}
+              </p>
+              <p v-if="forecasts.get(row.productId)" class="mt-0.5 flex items-center gap-1 text-xs text-accent-foreground">
+                <SparklesIcon class="size-3" /> Saran AI: {{ forecasts.get(row.productId)!.suggestedQty || 'belum perlu' }}
+                · habis {{ formatDays(forecasts.get(row.productId)!.daysUntilStockout) }}
               </p>
             </div>
             <Button

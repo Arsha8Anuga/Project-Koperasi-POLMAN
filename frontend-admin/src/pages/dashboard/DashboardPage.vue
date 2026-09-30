@@ -18,15 +18,18 @@ import {
 import { computed, onMounted, ref, type Component } from 'vue'
 import PageHeader from '@/components/common/PageHeader.vue'
 import StatCard from '@/components/common/StatCard.vue'
+import ChartCard from '@/components/charts/ChartCard.vue'
+import StockoutRiskChart from '@/components/charts/StockoutRiskChart.vue'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { dashboardApi } from '@/services/api'
+import { dashboardApi, insightApi } from '@/services/api'
 import { errorMessage } from '@/services/apiClient'
 import { useAuthStore } from '@/stores/auth'
-import type { AdminSummary, LogistikSummary, OwnerSummary } from '@/types/api'
-import { formatNumber, formatRupiah } from '@/utils/format'
+import type { AdminSummary, ForecastList, LogistikSummary, OwnerSummary } from '@/types/api'
+import { formatDateTime, formatNumber, formatRupiah } from '@/utils/format'
+import { useRouter } from 'vue-router'
 
 type Tone = 'primary' | 'success' | 'warning' | 'danger' | 'neutral'
 interface StatItem {
@@ -42,7 +45,24 @@ const summary = ref<OwnerSummary | LogistikSummary | AdminSummary | null>(null)
 const loading = ref(true)
 const error = ref('')
 
+// LOGISTIK: mini chart 5 produk yang paling cepat habis menurut AI engine (gagal = kartu disembunyikan)
+const router = useRouter()
+const forecast = ref<ForecastList | null>(null)
+const forecastLoading = ref(false)
+async function loadForecast() {
+  forecastLoading.value = true
+  try {
+    forecast.value = await insightApi.forecast()
+  } catch {
+    forecast.value = null
+  } finally {
+    forecastLoading.value = false
+  }
+}
+const urgent = computed(() => (forecast.value?.products ?? []).filter((p) => p.daysUntilStockout !== null))
+
 onMounted(async () => {
+  if (auth.user?.role === 'LOGISTIK') loadForecast()
   try {
     summary.value = await dashboardApi.summary()
   } catch (e) {
@@ -140,6 +160,27 @@ const greeting = computed(() => {
         </RouterLink>
       </CardContent>
     </Card>
+
+    <ChartCard
+      v-if="auth.user?.role === 'LOGISTIK' && (forecastLoading || forecast?.meta)"
+      title="Segera habis (prediksi AI)"
+      :subtitle="forecast?.meta ? `Dihitung ${formatDateTime(forecast.meta.generatedAt)}` : undefined"
+      :loading="forecastLoading"
+      :empty="!urgent.length"
+      :height="220"
+    >
+      <template #actions>
+        <RouterLink :to="{ name: 'stock' }" class="text-sm font-semibold text-primary hover:underline">Detail</RouterLink>
+      </template>
+      <StockoutRiskChart
+        v-if="forecast"
+        :items="urgent"
+        :limit="5"
+        :lead-time="Number(forecast.meta?.params.lead_time_days ?? 3)"
+        :review-days="Number(forecast.meta?.params.review_days ?? 7)"
+        @select="router.push({ name: 'stock' })"
+      />
+    </ChartCard>
 
     <Card v-if="usersByRole.length">
       <CardHeader><CardTitle class="text-base">Pengguna per peran</CardTitle></CardHeader>

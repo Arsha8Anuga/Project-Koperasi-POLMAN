@@ -304,3 +304,92 @@ export interface AdminSummary {
   activeMembers: number
   auditLogsToday: number
 }
+
+// ---------- AI engine (/insights) ----------
+export type InsightKind = 'association_rules' | 'forecast'
+export type JobStatus = 'PENDING' | 'RUNNING' | 'DONE' | 'FAILED'
+export type JobTrigger = 'MANUAL' | 'SCHEDULE' | 'SEED'
+export type ForecastModel = 'holt_winters' | 'moving_average' | 'croston'
+
+export interface InsightProductRef {
+  productId: string
+  sku: string
+  name: string
+}
+
+export interface InsightMeta {
+  generatedAt: string
+  params: Record<string, unknown>
+  stats: Record<string, unknown>
+}
+
+export interface AssociationRule {
+  antecedent: InsightProductRef[]
+  consequent: InsightProductRef[]
+  support: number
+  confidence: number
+  lift: number
+  count: number
+}
+
+export interface AssociationRules {
+  meta: InsightMeta | null
+  rules: AssociationRule[]
+}
+
+export interface DailyPoint {
+  date: string
+  qty: number
+  lower?: number | null
+  upper?: number | null
+}
+
+export interface ForecastSummary {
+  productId: string
+  sku: string
+  name: string
+  unit: string
+  stock: number
+  avgDaily: number
+  model: ForecastModel | string
+  wape: number | null
+  baselineWape: number | null
+  daysUntilStockout: number | null
+  stockoutDate: string | null
+  suggestedQty: number
+  reorderNeeded: boolean
+  reorderPoint: number | null
+}
+
+export interface ForecastDetail extends ForecastSummary {
+  safetyStock: number
+  modelParams: Record<string, number> | null
+  history: DailyPoint[]
+  forecast: DailyPoint[]
+  excludedStockoutDays: number
+}
+
+export interface ForecastList {
+  meta: InsightMeta | null
+  products: ForecastSummary[]
+}
+
+export interface AiJob {
+  id: string
+  status: JobStatus
+  trigger: JobTrigger
+  kinds: InsightKind[]
+  requestedBy: { id: string; name: string; role: Role } | null
+  requestedAt: string
+  startedAt: string | null
+  finishedAt: string | null
+  error: string | null
+  summary: Record<string, Record<string, unknown>> | null
+}
+
+export interface AiStatus {
+  engine: { online: boolean; lastSeenAt: string | null; version: string | null; intervalMinutes: number | null }
+  activeJob: AiJob | null
+  insights: { kind: InsightKind; generatedAt: string | null; stats: Record<string, unknown> | null }[]
+  recentJobs: AiJob[]
+}

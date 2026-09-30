@@ -136,3 +136,14 @@ export interface StockIssue {
   requested?: number
   available?: number
 }
+
+/** Bagian produk yang dibutuhkan keranjang (produk katalog atau saran AI). */
+export type CartProduct = Pick<Product, 'id' | 'sku' | 'name' | 'unit' | 'sellingPrice' | 'stock'>
+
+/** Saran "sering dibeli bersama" dari AI engine (GET /insights/frequently-bought). */
+export interface Suggestion {
+  product: CartProduct
+  because: string[]
+  confidence: number
+  lift: number
+}

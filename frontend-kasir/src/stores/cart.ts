@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { CartItem, Product } from '@/types'
+import type { CartItem, CartProduct, Product } from '@/types'
 
 const STORAGE_KEY = 'kasir_cart'
 
@@ -23,7 +23,7 @@ export const useCartStore = defineStore('cart', {
     persist() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(this.items))
     },
-    add(product: Product) {
+    add(product: CartProduct) {
       if (product.stock <= 0) return
       const existing = this.items.find((i) => i.productId === product.id)
       if (existing) {

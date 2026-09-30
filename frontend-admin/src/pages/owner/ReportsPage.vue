@@ -6,6 +6,7 @@ import CashflowChart from '@/components/charts/CashflowChart.vue'
 import ChartCard from '@/components/charts/ChartCard.vue'
 import GrossProfitChart from '@/components/charts/GrossProfitChart.vue'
 import PeriodPicker from '@/components/charts/PeriodPicker.vue'
+import AssociationRulesCard from '@/components/insights/AssociationRulesCard.vue'
 import '@/components/charts/setup'
 import { reportApi } from '@/services/api'
 import { errorMessage } from '@/services/apiClient'
@@ -98,5 +99,6 @@ const isEmpty = (buckets: object[] | undefined, keys: string[]) =>
     >
       <BestSellerChart v-if="best.data" :report="best.data" />
     </ChartCard>
+    <AssociationRulesCard class="xl:col-span-2" />
   </div>
 </template>

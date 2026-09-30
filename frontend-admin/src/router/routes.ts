@@ -7,6 +7,7 @@ import {
   PackageIcon,
   PackagePlusIcon,
   ScrollTextIcon,
+  SparklesIcon,
   TagsIcon,
   TruckIcon,
   UsersIcon,
@@ -120,5 +121,11 @@ export const appRoutes: RouteRecordRaw[] = [
     name: 'audit-logs',
     component: () => import('@/pages/admin/AuditLogsPage.vue'),
     meta: { title: 'Audit Trail', roles: ['ADMIN'], menu: { label: 'Audit Trail', group: 'Admin', icon: ScrollTextIcon } },
+  },
+  {
+    path: 'admin/ai-engine',
+    name: 'ai-engine',
+    component: () => import('@/pages/admin/AiEnginePage.vue'),
+    meta: { title: 'AI Engine', roles: ['ADMIN'], menu: { label: 'AI Engine', group: 'Admin', icon: SparklesIcon } },
   },
 ]

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { MinusIcon, PlusIcon, ShoppingCartIcon, TrashIcon } from '@lucide/vue'
 import { useRouter } from 'vue-router'
+import CartSuggestions from '@/components/cart/CartSuggestions.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty'
@@ -94,6 +95,8 @@ function onQtyInput(productId: string, e: Event) {
         </p>
       </li>
     </ul>
+
+    <CartSuggestions />
 
     <div class="border-t bg-card px-5 py-4">
       <div class="mb-1 flex justify-between text-sm text-muted-foreground">

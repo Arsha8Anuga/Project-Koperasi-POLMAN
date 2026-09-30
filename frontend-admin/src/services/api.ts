@@ -33,6 +33,11 @@ import type {
   TransactionType,
   User,
   UserCreate,
+  AiJob,
+  AiStatus,
+  AssociationRules,
+  ForecastDetail,
+  ForecastList,
 } from '@/types/api'
 
 const data = <T>(p: Promise<{ data: ApiResponse<T> }>) => p.then((r) => r.data.data)
@@ -123,4 +128,14 @@ export const reportApi = {
   grossProfit: (p: ReportPeriod) => data<GrossProfitReport>(api.get('/reports/gross-profit', { params: p })),
   bestSellers: (p: { from: string; to: string; limit?: number; categoryId?: string }) =>
     data<BestSellerReport>(api.get('/reports/best-sellers', { params: clean(p) })),
+}
+
+export const insightApi = {
+  associationRules: (q: { limit?: number; minLift?: number } = {}) =>
+    data<AssociationRules>(api.get('/insights/association-rules', { params: q })),
+  forecast: () => data<ForecastList>(api.get('/insights/forecast')),
+  forecastDetail: (productId: string) =>
+    data<{ meta: ForecastList['meta']; product: ForecastDetail }>(api.get(`/insights/forecast/${productId}`)),
+  status: () => data<AiStatus>(api.get('/insights/status')),
+  recompute: () => data<AiJob>(api.post('/insights/jobs')),
 }
