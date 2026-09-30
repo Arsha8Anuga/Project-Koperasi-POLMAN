@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ArrowLeftIcon } from '@lucide/vue'
+import { ArrowLeftIcon, ScanBarcodeIcon } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import BarcodeScanner from '@/components/common/BarcodeScanner.vue'
 import ErrorAlert from '@/components/common/ErrorAlert.vue'
 import FormField from '@/components/form/FormField.vue'
 import { Button } from '@/components/ui/button'
@@ -13,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { categoryApi, productApi } from '@/services/api'
 import { ApiException, errorMessage } from '@/services/apiClient'
+import { useScannerInput } from '@/composables/useScannerInput'
 import { useToast } from '@/composables/useToast'
 import type { Category, Product, ProductInput } from '@/types/api'
 import { formatRupiah } from '@/utils/format'
@@ -40,9 +42,28 @@ const form = reactive({
   imageUrl: '',
 })
 
+// ---------- barcode: scanner USB / kamera → isi field barcode ----------
+const scanOpen = ref(false)
+
+async function applyScannedBarcode(raw: string) {
+  const code = raw.trim()
+  if (!code) return
+  form.barcode = code
+  delete errors.barcode
+  try {
+    const other = await productApi.lookup(code)
+    if (other.id !== id.value) errors.barcode = `Sudah dipakai ${other.name} (${other.sku})`
+  } catch {
+    /* 404 = barcode belum dipakai: aman */
+  }
+}
+
+useScannerInput(applyScannedBarcode)
+
 onMounted(async () => {
   try {
     categories.value = await categoryApi.list(true)
+    if (!id.value && typeof route.query.barcode === 'string') form.barcode = route.query.barcode
     if (id.value) {
       product.value = await productApi.get(id.value)
       const p = product.value
@@ -128,7 +149,20 @@ async function submit() {
               <Input id="sku" v-model="form.sku" class="font-mono uppercase" :aria-invalid="!!errors.sku || undefined" maxlength="40" />
             </FormField>
             <FormField label="Barcode" for="barcode" :error="errors.barcode" hint="Opsional">
-              <Input id="barcode" v-model="form.barcode" class="font-mono" :aria-invalid="!!errors.barcode || undefined" maxlength="40" />
+              <div class="flex gap-2">
+                <Input
+                  id="barcode"
+                  v-model="form.barcode"
+                  data-scan-input
+                  class="font-mono"
+                  :aria-invalid="!!errors.barcode || undefined"
+                  maxlength="40"
+                  @keydown.enter.prevent="applyScannedBarcode(form.barcode)"
+                />
+                <Button type="button" variant="outline" size="icon" title="Scan pakai kamera" aria-label="Scan barcode pakai kamera" @click="scanOpen = true">
+                  <ScanBarcodeIcon />
+                </Button>
+              </div>
             </FormField>
           </div>
           <FormField label="Nama produk" for="name" required :error="errors.name">
@@ -209,4 +243,5 @@ async function submit() {
       </CardContent>
     </Card>
   </div>
+  <BarcodeScanner v-model:open="scanOpen" title="Scan barcode produk" @detected="applyScannedBarcode" />
 </template>

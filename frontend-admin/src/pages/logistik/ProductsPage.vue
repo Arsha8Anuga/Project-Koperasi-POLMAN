@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { PlusIcon, SquarePenIcon } from '@lucide/vue'
+import { PlusIcon, ScanBarcodeIcon, SquarePenIcon } from '@lucide/vue'
 import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import ActiveBadge from '@/components/common/ActiveBadge.vue'
+import BarcodeScanner from '@/components/common/BarcodeScanner.vue'
 import ConfirmModal from '@/components/common/ConfirmModal.vue'
 import ErrorAlert from '@/components/common/ErrorAlert.vue'
 import FilterToggle from '@/components/common/FilterToggle.vue'
@@ -15,13 +17,15 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { usePagination } from '@/composables/usePagination'
+import { useScannerInput } from '@/composables/useScannerInput'
 import { useToast } from '@/composables/useToast'
 import { categoryApi, productApi } from '@/services/api'
-import { errorMessage } from '@/services/apiClient'
+import { ApiException, errorMessage } from '@/services/apiClient'
 import type { Category, Product, StockStatus } from '@/types/api'
 import { formatRupiah } from '@/utils/format'
 
 const toast = useToast()
+const router = useRouter()
 const categories = ref<Category[]>([])
 
 const list = usePagination<
@@ -49,6 +53,25 @@ const columns: Column[] = [
   { key: 'isActive', label: 'Status' },
   { key: 'actions', label: '', align: 'right' },
 ]
+
+// ---------- barcode: scan barang di tangan → buka produknya (cek harga/stok) ----------
+const scanOpen = ref(false)
+
+async function openByCode(raw: string) {
+  const code = raw.trim()
+  if (!code) return
+  try {
+    const p = await productApi.lookup(code)
+    router.push({ name: 'product-edit', params: { id: p.id } })
+  } catch (e) {
+    if (e instanceof ApiException && e.status === 404) {
+      toast.error(`Barcode ${code} belum terdaftar — form produk baru dibuka dengan barcode terisi`)
+      router.push({ name: 'product-new', query: { barcode: code } })
+    } else toast.error(errorMessage(e, 'Gagal mencari produk'))
+  }
+}
+
+useScannerInput(openByCode)
 
 const target = ref<Product | null>(null)
 const toggling = ref(false)
@@ -78,6 +101,9 @@ async function toggle() {
   <Card class="gap-0 overflow-hidden py-0">
     <div class="flex flex-wrap items-center gap-2 border-b p-4">
       <SearchInput v-model="list.filters.search" placeholder="Cari nama, SKU, atau barcode" />
+      <Button variant="outline" title="Scan barcode untuk membuka produk" @click="scanOpen = true">
+        <ScanBarcodeIcon /> <span class="hidden sm:inline">Scan</span>
+      </Button>
       <NativeSelect v-model="list.filters.categoryId" aria-label="Kategori">
         <NativeSelectOption value="">Semua kategori</NativeSelectOption>
         <NativeSelectOption v-for="c in categories" :key="c.id" :value="c.id">{{ c.name }}</NativeSelectOption>
@@ -145,4 +171,5 @@ async function toggle() {
     @confirm="toggle"
     @cancel="target = null"
   />
+  <BarcodeScanner v-model:open="scanOpen" title="Scan untuk membuka produk" @detected="openByCode" />
 </template>

@@ -2,8 +2,10 @@
 import { ArrowLeftIcon, PlusIcon, TrashIcon } from '@lucide/vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import BarcodeInput from '@/components/common/BarcodeInput.vue'
 import ErrorAlert from '@/components/common/ErrorAlert.vue'
 import FormField from '@/components/form/FormField.vue'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -13,7 +15,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { productApi, restockApi, supplierApi } from '@/services/api'
-import { errorMessage } from '@/services/apiClient'
+import { ApiException, errorMessage } from '@/services/apiClient'
+import { useScannerInput } from '@/composables/useScannerInput'
 import { useToast } from '@/composables/useToast'
 import type { Product, Supplier } from '@/types/api'
 import { formatRupiah } from '@/utils/format'
@@ -53,6 +56,50 @@ function onPick(row: Row, value: unknown) {
 function addRow() {
   if (rows.length < 50) rows.push({ key: seq++, productId: '', quantity: 1, purchasePrice: 0 })
 }
+
+// ---------- barcode: scanner USB, ketik + Enter, atau kamera ----------
+const looking = ref(false)
+const unknownCode = ref('') // barcode yang belum terdaftar → tawarkan buat produk baru
+
+/** Produk hasil scan: sudah ada di tabel → qty +1; belum → isi baris kosong / baris baru. */
+function addProductRow(p: Product) {
+  const existing = rows.find((r) => r.productId === p.id)
+  if (existing) {
+    existing.quantity = (existing.quantity || 0) + 1
+    toast.success(`${p.name}: jumlah jadi ${existing.quantity}`)
+    return
+  }
+  let row = rows.find((r) => !r.productId)
+  if (!row) {
+    if (rows.length >= 50) return toast.error('Maksimal 50 baris per restock')
+    rows.push({ key: seq++, productId: '', quantity: 1, purchasePrice: 0 })
+    row = rows[rows.length - 1]
+  }
+  if (!row) return
+  if (!byId.value.has(p.id)) products.value = [...products.value, p]
+  onPick(row, p.id)
+  toast.success(`${p.name} ditambahkan`)
+}
+
+async function addByCode(raw: string) {
+  const code = raw.trim()
+  if (!code || looking.value) return
+  const local = products.value.find((p) => p.barcode === code || p.sku === code.toUpperCase())
+  unknownCode.value = ''
+  if (local) return addProductRow(local)
+  looking.value = true
+  try {
+    addProductRow(await productApi.lookup(code))
+  } catch (e) {
+    if (e instanceof ApiException && e.status === 404) {
+      unknownCode.value = code
+    } else toast.error(errorMessage(e, 'Gagal mencari produk'))
+  } finally {
+    looking.value = false
+  }
+}
+
+useScannerInput(addByCode)
 
 async function loadProducts() {
   // Maksimal 100 per halaman; ambil semua halaman supaya semua produk bisa dipilih.
@@ -139,19 +186,81 @@ async function submit() {
           <Button type="button" variant="secondary" size="sm" :disabled="rows.length >= 50" @click="addRow"><PlusIcon /> Tambah baris</Button>
         </CardAction>
       </CardHeader>
-      <Table>
-        <TableHeader class="bg-muted/60">
-          <TableRow class="hover:bg-transparent">
-            <TableHead class="h-11 min-w-64 px-4">Produk</TableHead>
-            <TableHead class="w-32">Jumlah</TableHead>
-            <TableHead class="w-44">Harga beli / unit</TableHead>
-            <TableHead class="w-40 text-right">Subtotal</TableHead>
-            <TableHead class="w-12" />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          <TableRow v-for="(row, i) in rows" :key="row.key" class="hover:bg-transparent">
-            <TableCell class="px-4 py-3 align-top whitespace-normal">
+      <div class="border-b bg-muted/40 px-4 py-3">
+        <BarcodeInput :loading="looking" continuous scanner-title="Scan barang restock" @submit="addByCode" />
+        <p class="mt-1.5 text-xs text-muted-foreground">
+          Scan barang yang sama lagi untuk menambah jumlahnya. Scanner USB bisa langsung dipakai tanpa klik kolom ini.
+        </p>
+        <Alert v-if="unknownCode" variant="warning" class="mt-3">
+          <AlertDescription class="flex flex-wrap items-center justify-between gap-2">
+            <span>Barcode <span class="font-mono font-semibold">{{ unknownCode }}</span> belum terdaftar.</span>
+            <Button as-child size="xs" variant="outline">
+              <RouterLink :to="{ name: 'product-new', query: { barcode: unknownCode } }" target="_blank">Buat produk baru</RouterLink>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+      <div class="hidden md:block">
+        <Table>
+          <TableHeader class="bg-muted/60">
+            <TableRow class="hover:bg-transparent">
+              <TableHead class="h-11 min-w-64 px-4">Produk</TableHead>
+              <TableHead class="w-32">Jumlah</TableHead>
+              <TableHead class="w-44">Harga beli / unit</TableHead>
+              <TableHead class="w-40 text-right">Subtotal</TableHead>
+              <TableHead class="w-12" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            <TableRow v-for="(row, i) in rows" :key="row.key" class="hover:bg-transparent">
+              <TableCell class="px-4 py-3 align-top whitespace-normal">
+                <NativeSelect
+                  :model-value="row.productId"
+                  class="w-full"
+                  :aria-label="`Produk baris ${i + 1}`"
+                  @update:model-value="(v) => onPick(row, v)"
+                >
+                  <NativeSelectOption value="" disabled>Pilih produk</NativeSelectOption>
+                  <NativeSelectOption v-for="p in options(row)" :key="p.id" :value="p.id">
+                    {{ p.name }} · {{ p.sku }} (stok {{ p.stock }}){{ p.isActive ? '' : ' — nonaktif' }}
+                  </NativeSelectOption>
+                </NativeSelect>
+                <p v-if="byId.get(row.productId)" class="mt-1 text-xs text-muted-foreground">
+                  HPP sekarang {{ formatRupiah(byId.get(row.productId)!.costPrice) }} · beli terakhir
+                  {{ formatRupiah(byId.get(row.productId)!.lastPurchasePrice) }}
+                </p>
+              </TableCell>
+              <TableCell class="py-3 align-top">
+                <Input v-model.number="row.quantity" type="number" min="1" max="10000" step="1" class="num" :aria-label="`Jumlah baris ${i + 1}`" />
+              </TableCell>
+              <TableCell class="py-3 align-top">
+                <Input v-model.number="row.purchasePrice" type="number" min="0" step="1" class="num" :aria-label="`Harga beli baris ${i + 1}`" />
+              </TableCell>
+              <TableCell class="py-5 text-right align-top font-semibold">
+                {{ formatRupiah((row.quantity || 0) * (row.purchasePrice || 0)) }}
+              </TableCell>
+              <TableCell class="py-3 align-top">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  class="text-muted-foreground hover:text-destructive"
+                  :disabled="rows.length <= 1"
+                  aria-label="Hapus baris"
+                  @click="rows.splice(i, 1)"
+                >
+                  <TrashIcon />
+                </Button>
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+      <!-- Layar kecil (HP di gudang): tiap baris jadi kartu, tabel lebar disembunyikan -->
+      <ul class="divide-y md:hidden">
+        <li v-for="(row, i) in rows" :key="row.key" class="space-y-3 px-4 py-4">
+          <div class="flex items-start gap-2">
+            <div class="min-w-0 flex-1">
               <NativeSelect
                 :model-value="row.productId"
                 class="w-full"
@@ -160,39 +269,41 @@ async function submit() {
               >
                 <NativeSelectOption value="" disabled>Pilih produk</NativeSelectOption>
                 <NativeSelectOption v-for="p in options(row)" :key="p.id" :value="p.id">
-                  {{ p.name }} · {{ p.sku }} (stok {{ p.stock }}){{ p.isActive ? '' : ' — nonaktif' }}
+                  {{ p.name }} · {{ p.sku }} (stok {{ p.stock }})
                 </NativeSelectOption>
               </NativeSelect>
               <p v-if="byId.get(row.productId)" class="mt-1 text-xs text-muted-foreground">
-                HPP sekarang {{ formatRupiah(byId.get(row.productId)!.costPrice) }} · beli terakhir
+                HPP {{ formatRupiah(byId.get(row.productId)!.costPrice) }} · beli terakhir
                 {{ formatRupiah(byId.get(row.productId)!.lastPurchasePrice) }}
               </p>
-            </TableCell>
-            <TableCell class="py-3 align-top">
-              <Input v-model.number="row.quantity" type="number" min="1" max="10000" step="1" class="num" :aria-label="`Jumlah baris ${i + 1}`" />
-            </TableCell>
-            <TableCell class="py-3 align-top">
-              <Input v-model.number="row.purchasePrice" type="number" min="0" step="1" class="num" :aria-label="`Harga beli baris ${i + 1}`" />
-            </TableCell>
-            <TableCell class="py-5 text-right align-top font-semibold">
-              {{ formatRupiah((row.quantity || 0) * (row.purchasePrice || 0)) }}
-            </TableCell>
-            <TableCell class="py-3 align-top">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                class="text-muted-foreground hover:text-destructive"
-                :disabled="rows.length <= 1"
-                aria-label="Hapus baris"
-                @click="rows.splice(i, 1)"
-              >
-                <TrashIcon />
-              </Button>
-            </TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              class="text-muted-foreground hover:text-destructive"
+              :disabled="rows.length <= 1"
+              aria-label="Hapus baris"
+              @click="rows.splice(i, 1)"
+            >
+              <TrashIcon />
+            </Button>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <label class="space-y-1 text-xs font-medium text-muted-foreground">
+              Jumlah
+              <Input v-model.number="row.quantity" type="number" inputmode="numeric" min="1" max="10000" step="1" class="num" />
+            </label>
+            <label class="space-y-1 text-xs font-medium text-muted-foreground">
+              Harga beli / unit
+              <Input v-model.number="row.purchasePrice" type="number" inputmode="numeric" min="0" step="1" class="num" />
+            </label>
+          </div>
+          <p class="text-right text-sm">
+            Subtotal <span class="num font-semibold">{{ formatRupiah((row.quantity || 0) * (row.purchasePrice || 0)) }}</span>
+          </p>
+        </li>
+      </ul>
       <div class="flex items-center justify-between border-t bg-muted/50 px-5 py-4">
         <span class="font-semibold text-muted-foreground">Total pembelian</span>
         <span class="num text-2xl font-extrabold">{{ formatRupiah(total) }}</span>
