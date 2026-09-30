@@ -1,29 +1,35 @@
 <script setup lang="ts">
-import { CircleCheckIcon, IdCardIcon, XIcon } from '@lucide/vue'
+import { CircleCheckIcon, IdCardIcon, UserPlusIcon, XIcon } from '@lucide/vue'
 import { ref } from 'vue'
+import { toast } from 'vue-sonner'
+import MemberRegisterDialog from '@/components/payment/MemberRegisterDialog.vue'
 import { Button } from '@/components/ui/button'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
-import { errorMessage } from '@/services/api'
-import { salesApi } from '@/services/salesApi'
-import type { MemberLookup as Member } from '@/types'
+import { ApiException, errorMessage } from '@/services/api'
+import { memberApi } from '@/services/memberApi'
+import type { Member, MemberLookup } from '@/types'
 
-const member = defineModel<Member | null>({ required: true })
+const member = defineModel<MemberLookup | null>({ required: true })
 
 const number = ref('')
 const loading = ref(false)
 const error = ref('')
+const notFound = ref(false)
+const registerOpen = ref(false)
 
 async function check() {
   const value = number.value.trim()
   if (!value || loading.value) return
   loading.value = true
   error.value = ''
+  notFound.value = false
   try {
-    member.value = await salesApi.lookupMember(value)
+    member.value = await memberApi.lookup(value)
   } catch (e) {
     member.value = null
+    notFound.value = e instanceof ApiException && e.status === 404
     error.value = errorMessage(e, 'Nomor anggota tidak ditemukan')
   } finally {
     loading.value = false
@@ -34,11 +40,23 @@ function clear() {
   member.value = null
   number.value = ''
   error.value = ''
+  notFound.value = false
+}
+
+function onRegistered(m: Member) {
+  member.value = { id: m.id, memberNumber: m.memberNumber, name: m.name }
+  number.value = m.memberNumber
+  error.value = ''
+  notFound.value = false
+  toast.success(`${m.name} terdaftar sebagai anggota`, {
+    description: `Nomor anggota: ${m.memberNumber} — catat di kartu anggota.`,
+    duration: 10000,
+  })
 }
 </script>
 
 <template>
-  <Field :data-invalid="!!error || undefined">
+  <Field :data-invalid="(!!error && !notFound) || undefined">
     <FieldLabel for="member-number">
       Anggota koperasi <span class="font-normal text-muted-foreground">(opsional)</span>
     </FieldLabel>
@@ -52,23 +70,37 @@ function clear() {
       <Button variant="ghost" size="icon-sm" aria-label="Hapus anggota" @click="clear"><XIcon /></Button>
     </div>
 
-    <form v-else class="flex gap-2" @submit.prevent="check">
-      <div class="relative flex-1">
-        <IdCardIcon class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          id="member-number"
-          v-model="number"
-          class="bg-background pl-9 uppercase placeholder:normal-case"
-          :aria-invalid="!!error || undefined"
-          placeholder="contoh: KOP-001"
-          autocomplete="off"
-        />
-      </div>
-      <Button type="submit" variant="outline" :disabled="loading || !number.trim()">
-        <Spinner v-if="loading" />
-        Cek
+    <template v-else>
+      <form class="flex gap-2" @submit.prevent="check">
+        <div class="relative flex-1">
+          <IdCardIcon class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            id="member-number"
+            v-model="number"
+            class="bg-background pl-9 uppercase placeholder:normal-case"
+            :aria-invalid="!!error || undefined"
+            placeholder="contoh: KOP-001"
+            autocomplete="off"
+          />
+        </div>
+        <Button type="submit" variant="outline" :disabled="loading || !number.trim()">
+          <Spinner v-if="loading" />
+          Cek
+        </Button>
+      </form>
+      <FieldError v-if="error">{{ error }}</FieldError>
+      <Button
+        type="button"
+        :variant="notFound ? 'secondary' : 'link'"
+        size="sm"
+        class="w-fit"
+        :class="!notFound && 'h-auto px-0'"
+        @click="registerOpen = true"
+      >
+        <UserPlusIcon /> {{ notFound ? 'Daftarkan sebagai anggota baru' : 'Belum jadi anggota? Daftarkan' }}
       </Button>
-    </form>
-    <FieldError v-if="error">{{ error }}</FieldError>
+    </template>
   </Field>
+
+  <MemberRegisterDialog v-model:open="registerOpen" @registered="onRegistered" />
 </template>

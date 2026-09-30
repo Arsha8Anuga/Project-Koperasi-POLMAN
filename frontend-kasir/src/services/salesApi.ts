@@ -1,5 +1,5 @@
 import { api } from './api'
-import type { ApiResponse, MemberLookup, Paginated, Sale, SaleRequest } from '@/types'
+import type { ApiResponse, Paginated, Sale, SaleRequest } from '@/types'
 
 export const salesApi = {
   async create(body: SaleRequest): Promise<Sale> {
@@ -14,11 +14,6 @@ export const salesApi = {
 
   async get(id: string): Promise<Sale> {
     const res = await api.get<ApiResponse<Sale>>(`/sales/${id}`)
-    return res.data.data
-  },
-
-  async lookupMember(memberNumber: string): Promise<MemberLookup> {
-    const res = await api.get<ApiResponse<MemberLookup>>(`/members/lookup/${encodeURIComponent(memberNumber)}`)
     return res.data.data
   },
 }

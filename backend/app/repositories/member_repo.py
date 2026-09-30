@@ -16,6 +16,12 @@ async def find_by_id(db: AsyncDatabase, member_id: ObjectId) -> dict[str, Any] |
     return await _col(db).find_one({"_id": member_id})
 
 
+async def member_numbers_matching(db: AsyncDatabase, pattern: str) -> list[str]:
+    """Semua memberNumber yang cocok regex (dipakai sekali untuk menyelaraskan counter)."""
+    cursor = _col(db).find({"memberNumber": {"$regex": pattern}}, {"memberNumber": 1, "_id": 0})
+    return [d["memberNumber"] async for d in cursor]
+
+
 async def find_active_by_number(db: AsyncDatabase, member_number: str) -> dict[str, Any] | None:
     return await _col(db).find_one({"memberNumber": member_number, "isActive": True})
 

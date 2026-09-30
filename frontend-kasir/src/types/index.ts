@@ -64,6 +64,18 @@ export interface MemberLookup {
   name: string
 }
 
+/** Pendaftaran anggota oleh kasir. Nomor anggota dibuat backend (KOP-NNN). */
+export interface MemberCreate {
+  name: string
+  phone: string | null
+}
+
+export interface Member extends MemberLookup {
+  phone: string | null
+  isActive: boolean
+  joinedAt: string
+}
+
 export interface SaleItem {
   productId: string
   sku: string

@@ -49,14 +49,13 @@ const columns: Column[] = [
 
 const open = ref(false)
 const editing = ref<Member | null>(null)
-const form = reactive({ memberNumber: '', name: '', phone: '', joinedAt: todayWib(), isActive: true })
+const form = reactive({ name: '', phone: '', joinedAt: todayWib(), isActive: true })
 const errors = reactive<Record<string, string>>({})
 const saving = ref(false)
 
 function openForm(m: Member | null) {
   editing.value = m
   Object.assign(form, {
-    memberNumber: m?.memberNumber ?? '',
     name: m?.name ?? '',
     phone: m?.phone ?? '',
     joinedAt: m?.joinedAt ?? todayWib(),
@@ -68,18 +67,19 @@ function openForm(m: Member | null) {
 
 async function save() {
   for (const k of Object.keys(errors)) delete errors[k]
-  if (!editing.value && !form.memberNumber.trim()) errors.memberNumber = 'Nomor anggota wajib diisi'
   if (!form.name.trim()) errors.name = 'Nama wajib diisi'
   if (form.phone.trim() && !/^\+?[0-9]{8,15}$/.test(form.phone.trim())) errors.phone = '8–15 digit angka'
   if (Object.keys(errors).length) return
   saving.value = true
   const phone = form.phone.trim() || null
   try {
-    if (editing.value)
+    if (editing.value) {
       await memberApi.update(editing.value.id, { name: form.name.trim(), phone, isActive: form.isActive })
-    else
-      await memberApi.create({ memberNumber: form.memberNumber.trim(), name: form.name.trim(), phone, joinedAt: form.joinedAt })
-    toast.success(editing.value ? 'Data anggota diperbarui' : 'Anggota didaftarkan')
+      toast.success('Data anggota diperbarui')
+    } else {
+      const m = await memberApi.create({ name: form.name.trim(), phone, joinedAt: form.joinedAt })
+      toast.success(`Anggota didaftarkan dengan nomor ${m.memberNumber}`)
+    }
     open.value = false
     list.reload()
   } catch (e) {
@@ -117,22 +117,14 @@ async function save() {
 
   <Modal :open="open" :title="editing ? `Ubah anggota ${editing.memberNumber}` : 'Daftarkan anggota'" @close="open = false">
     <form class="space-y-4" @submit.prevent="save">
-      <div v-if="!editing" class="grid gap-4 sm:grid-cols-2">
-        <FormField label="Nomor anggota" for="m-no" required :error="errors.memberNumber" hint="Disarankan KOP-NNN">
-          <Input
-            id="m-no"
-            v-model="form.memberNumber"
-            class="font-mono uppercase"
-            :aria-invalid="!!errors.memberNumber || undefined"
-            maxlength="20"
-          />
-        </FormField>
-        <FormField label="Tanggal bergabung" for="m-join" :error="errors.joinedAt">
-          <Input id="m-join" v-model="form.joinedAt" type="date" />
-        </FormField>
-      </div>
+      <p v-if="!editing" class="rounded-md bg-muted/60 px-3 py-2 text-sm text-muted-foreground">
+        Nomor anggota (KOP-NNN) dibuat otomatis setelah disimpan.
+      </p>
       <FormField label="Nama" for="m-name" required :error="errors.name">
         <Input id="m-name" v-model="form.name" :aria-invalid="!!errors.name || undefined" maxlength="60" />
+      </FormField>
+      <FormField v-if="!editing" label="Tanggal bergabung" for="m-join" :error="errors.joinedAt">
+        <Input id="m-join" v-model="form.joinedAt" type="date" />
       </FormField>
       <FormField label="Telepon" for="m-phone" :error="errors.phone" hint="Opsional">
         <Input id="m-phone" v-model="form.phone" inputmode="tel" placeholder="0812…" :aria-invalid="!!errors.phone || undefined" />

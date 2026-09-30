@@ -75,8 +75,8 @@ export interface Member {
   updatedAt: string
 }
 
+/** Nomor anggota dibuat otomatis oleh backend (KOP-NNN). */
 export interface MemberCreate {
-  memberNumber: string
   name: string
   phone: string | null
   joinedAt?: string

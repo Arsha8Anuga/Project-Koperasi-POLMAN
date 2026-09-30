@@ -27,8 +27,12 @@ async def list_members(
 
 @router.post("", status_code=201, response_model=ApiResponse[MemberOut])
 async def create_member(
-    body: MemberCreate, user: CurrentUser = Depends(admin_only), db: AsyncDatabase = Depends(get_db)
+    body: MemberCreate,
+    user: CurrentUser = Depends(require_roles(Role.ADMIN, Role.KASIR)),
+    db: AsyncDatabase = Depends(get_db),
 ):
+    """KASIR boleh mendaftarkan anggota; ubah data & nonaktifkan tetap khusus ADMIN.
+    Nomor anggota dibuat otomatis (KOP-NNN)."""
     return ok(await member_service.create_member(db, user, body), "Anggota berhasil didaftarkan")
 
 
