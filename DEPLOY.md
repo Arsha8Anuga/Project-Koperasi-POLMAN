@@ -1,6 +1,6 @@
 # Deploy ke Portainer (Docker)
 
-Satu stack berisi 3 container. MongoDB **tidak** ikut stack; backend memakai server Mongo yang sudah ada (zenahost) lewat `MONGODB_URI`.
+Satu stack berisi 4 container (backend, AI engine, kasir, admin). MongoDB **tidak** ikut stack; backend memakai server Mongo yang sudah ada (zenahost) lewat `MONGODB_URI`.
 
 ```text
  pengguna ──HTTPS──► reverse proxy (NPM / Traefik / Caddy)
@@ -10,10 +10,11 @@ Satu stack berisi 3 container. MongoDB **tidak** ikut stack; backend memakai ser
              ┌──────── stack "koperasi" ────────┐
              │ kasir  (nginx :80)  ─┐            │
              │ admin  (nginx :80)  ─┼─ /api/ ──► backend (uvicorn :8000, tidak di-publish)
-             └──────────────────────┴────────────┘
-                                                    │
-                                                    ▼
-                              MongoDB replica set (db-proj-aec3.zenahost.my.id:40008)
+             │ ai-engine (worker, tanpa port)    │        │
+             └──────────────────────┴────────────┘        │
+                      │ baca transaksi, tulis insights    │
+                      ▼                                   ▼
+                  MongoDB replica set (db-proj-aec3.zenahost.my.id:40008)
 ```
 
 - Frontend memanggil API di **domain yang sama** (`/api/v1`). Nginx di container kasir/admin meneruskannya ke `backend:8000`. Hasilnya: tidak perlu CORS, dan image frontend tidak perlu dibuild ulang kalau domain berganti.
@@ -28,6 +29,7 @@ Satu stack berisi 3 container. MongoDB **tidak** ikut stack; backend memakai ser
 | `stack.env.example` | Daftar environment variable yang harus diisi di Portainer |
 | `backend/Dockerfile` | Python 3.11 slim, dependensi dari `requirements.txt` (tanpa pytest/ruff), user non-root, healthcheck `/health` |
 | `frontend-*/Dockerfile` | Build Vite di Node 22 (`npm run build` = vue-tsc + vite), hasilnya disajikan `nginx:stable-alpine` |
+| `ai-engine/Dockerfile` | Worker Python 3.11 + numpy + pymongo; healthcheck = denyut di `ai_engine_status` |
 | `frontend-*/nginx.conf` | SPA fallback, proxy `/api/` → backend, cache aset, header keamanan (**identik** di kedua app) |
 
 ## 1. Sebelum deploy (di laptop)
@@ -57,7 +59,7 @@ Satu stack berisi 3 container. MongoDB **tidak** ikut stack; backend memakai ser
 
 Lalu **Deploy the stack**. Build pertama agak lama (install npm + vue-tsc) — normal 3–8 menit. Server dengan RAM < 2 GB bisa kehabisan memori saat build Vite; kalau build mati tanpa pesan jelas, itu penyebabnya.
 
-Setelah jalan, di **Containers** ketiganya harus berstatus *healthy*. `backend` *unhealthy* hampir selalu berarti Mongo tidak terjangkau atau `MONGODB_URI` salah (cek **Logs** container backend).
+Setelah jalan, di **Containers** keempatnya harus berstatus *healthy*. `ai-engine` butuh ±1 menit sebelum healthy (menunggu denyut pertama). `backend` *unhealthy* hampir selalu berarti Mongo tidak terjangkau atau `MONGODB_URI` salah (cek **Logs** container backend).
 
 ## 3. Domain & HTTPS (reverse proxy)
 
@@ -95,6 +97,8 @@ python -m scripts.create_initial_users
 
 Akun: `owner`, `logistik`, `admin`, `kasir1`, `kasir2` — password `koperasi123`. **Ganti password** lewat menu Pengguna kalau URL-nya dibagikan ke luar tim.
 
+Seed otomatis mengantrekan perhitungan AI; dalam ±10 detik engine memprosesnya (lihat menu **Admin → AI Engine** atau Logs container `ai-engine`). Tanpa seed, engine menghitung sendiri tiap 15 menit.
+
 Cek: buka `https://kasir.<domain>` → login `kasir1`; buka `https://admin.<domain>` → login `owner` → menu Laporan menampilkan chart.
 
 ## 5. Update setelah ada commit baru
@@ -113,4 +117,5 @@ Push ke `main` → Portainer → stack `koperasi` → **Pull and redeploy** (cen
 | Backend log `ServerSelectionTimeoutError` / `not primary` | Mongo tidak terjangkau dari server, URI salah, atau password belum di-URL-encode (`+` → `%2B`) |
 | Backend log `jwt_secret  String should have at least 32 characters` | `JWT_SECRET` terlalu pendek |
 | Refresh di halaman selain `/` → 404 | `nginx.conf` tidak ter-copy (cek `try_files ... /index.html`) |
+| Saran "sering dibeli bersama" / prediksi stok kosong | Engine belum pernah menghitung: cek status di Admin → AI Engine; engine *offline* → lihat Logs `ai-engine` (biasanya `MONGODB_URI`/`MONGODB_DB` beda dengan backend) |
 | IP di audit trail selalu IP proxy | Reverse proxy tidak mengirim `X-Forwarded-For` (NPM sudah mengirim secara default) |

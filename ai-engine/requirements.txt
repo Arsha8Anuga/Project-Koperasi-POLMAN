@@ -1,0 +1,5 @@
+# Runtime AI engine. Sengaja tanpa pandas/scikit-learn/statsmodels: algoritma ditulis sendiri di atas
+# numpy supaya image kecil, mudah dijelaskan, dan jalan di CPU lama (tidak butuh AVX2).
+pymongo>=4.13,<5
+numpy>=1.26,<3
+tzdata>=2024.1

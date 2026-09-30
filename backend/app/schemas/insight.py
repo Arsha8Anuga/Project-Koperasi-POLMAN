@@ -92,10 +92,12 @@ class ForecastSummary(CamelModel):
     stockout_date: date | None = None
     suggested_qty: int
     reorder_needed: bool
+    reorder_point: float | None = None
 
 
 class ForecastDetail(ForecastSummary):
     safety_stock: int
+    model_params: dict | None = None
     history: list[DailyPoint]
     forecast: list[DailyPoint]
     excluded_stockout_days: int = 0

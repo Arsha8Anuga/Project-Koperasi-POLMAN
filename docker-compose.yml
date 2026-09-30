@@ -19,6 +19,22 @@ services:
     # Tidak ada "ports": backend hanya bisa dijangkau container kasir/admin lewat jaringan internal stack
     # (nginx di kedua frontend memanggilnya dengan nama service "backend").
 
+  # AI engine: worker tanpa port. Membaca transaksi & menulis collection insights (ai-engine/CONTRACT.md).
+  # Boleh mati/restart kapan saja; kasir & admin tetap jalan dengan hasil terakhir.
+  ai-engine:
+    build:
+      context: ./ai-engine
+    image: koperasi-ai-engine:latest
+    restart: unless-stopped
+    environment:
+      MONGODB_URI: ${MONGODB_URI:?MONGODB_URI wajib diisi}
+      MONGODB_DB: ${MONGODB_DB:-koperasi_demo}
+      AI_INTERVAL_MINUTES: ${AI_INTERVAL_MINUTES:-15}
+      AI_LEAD_TIME_DAYS: ${AI_LEAD_TIME_DAYS:-3}
+      AI_REVIEW_DAYS: ${AI_REVIEW_DAYS:-7}
+      AI_SERVICE_LEVEL: ${AI_SERVICE_LEVEL:-0.95}
+      TZ: Asia/Jakarta
+
   kasir:
     build:
       context: ./frontend-kasir
