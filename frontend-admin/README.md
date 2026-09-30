@@ -32,7 +32,8 @@ Varian tambahan proyek: `Badge` → `soft`, `success`, `warning`, `danger`; `Ale
 ## Tema
 
 Token warna ada di `src/style.css` (abu · navy · biru tua, mode terang & gelap). File ini, `composables/useTheme.ts`,
-`lib/utils.ts`, `utils/format.ts`, `components/common/{ThemeToggle,UserMenu,PagePagination,BrandMark}.vue`, dan isi
+`lib/utils.ts`, `utils/format.ts`, `composables/useScannerInput.ts`,
+`components/common/{ThemeToggle,UserMenu,PagePagination,BrandMark,BarcodeScanner}.vue`, dan isi
 `components/ui/` yang sama **harus identik** di `frontend-kasir` dan `frontend-admin` — ubah di satu app, salin ke app lain.
 
 ## Pola halaman (admin)
@@ -45,3 +46,16 @@ Token warna ada di `src/style.css` (abu · navy · biru tua, mode terang & gelap
 | Konfirmasi aktif/nonaktif | `ConfirmModal` (shadcn `AlertDialog`) |
 | Menu samping | `AppSidebar` (shadcn `Sidebar`, dibangun dari `router/routes.ts` + `meta.roles`) |
 | Grafik | `ChartCard` + komponen di `components/charts` (warna dari token `--chart-1..5`) |
+
+## Scan barcode
+
+Empat cara input, semuanya berakhir di `GET /products/lookup/{kode}` (barcode persis, lalu SKU):
+
+| Cara | Ditangani oleh |
+|---|---|
+| Scanner USB/Bluetooth (bekerja seperti keyboard) | `useScannerInput` — mendeteksi ketikan super cepat + Enter di mana pun fokus berada |
+| Ketik manual lalu Enter | Kolom barcode / pencarian (atribut `data-scan-input`) |
+| Kamera yang tercolok (webcam, HP sebagai webcam via DroidCam/Iriun/mode webcam Android) | `BarcodeScanner` — pilih kamera di dialog |
+| Kamera HP/tablet saat aplikasi dibuka langsung di perangkat itu | `BarcodeScanner` (kamera belakang dipilih otomatis) |
+
+Kamera hanya jalan di **HTTPS atau localhost**. Decoding memakai ZXing (`@zxing/browser`), bukan model AI.
