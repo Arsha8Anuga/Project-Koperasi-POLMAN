@@ -18,7 +18,8 @@ Satu stack berisi 4 container (backend, AI engine, kasir, admin). MongoDB **tida
 ```
 
 - Frontend memanggil API di **domain yang sama** (`/api/v1`). Nginx di container kasir/admin meneruskannya ke `backend:8000`. Hasilnya: tidak perlu CORS, dan image frontend tidak perlu dibuild ulang kalau domain berganti.
-- Port 8000 backend tidak dibuka ke luar. Swagger (`/docs`) juga tidak bisa diakses dari internet; itu disengaja.
+- Port backend hanya dibuka ke `127.0.0.1` server (bawaan `BACKEND_HOST_PORT=30007`), jadi Swagger (`/docs`) tidak bisa diakses dari internet; itu disengaja. Buka lewat SSH tunnel: `ssh -L 30007:127.0.0.1:30007 user@server` lalu `http://localhost:30007/docs`.
+- Semua port bisa diganti lewat env stack tanpa mengubah file: `KASIR_PORT`, `ADMIN_PORT`, `BACKEND_HOST_PORT` (port di host) dan `BACKEND_PORT` (port backend di dalam container, otomatis ikut dipakai nginx kasir/admin).
 - Rahasia (`MONGODB_URI`, `JWT_SECRET`) hanya diisi di Portainer, tidak ada di repo maupun di image.
 - Foto produk yang diunggah disimpan di **named volume `media`** (Portainer → Volumes → `koperasi_media`), dibuat otomatis saat deploy. Jangan dihapus saat membersihkan stack, dan ikut di-backup bersama database.
 

@@ -16,7 +16,12 @@ RUN npm run build
 
 # ---- runtime: nginx menyajikan SPA + proxy /api ke backend ----
 FROM nginx:stable-alpine
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Template → /etc/nginx/conf.d/default.conf saat start (envsubst bawaan image nginx resmi).
+# Alamat backend bisa diganti lewat environment tanpa build ulang image.
+ENV BACKEND_HOST=backend \
+    BACKEND_PORT=8000 \
+    NGINX_ENVSUBST_FILTER=^BACKEND_
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 CMD wget -qO /dev/null http://127.0.0.1/healthz || exit 1

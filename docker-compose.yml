@@ -16,12 +16,16 @@ services:
       # Frontend memanggil API lewat domain yang sama (/api), jadi CORS tidak dibutuhkan.
       CORS_ORIGINS: ${CORS_ORIGINS:-}
       APP_TZ: Asia/Jakarta
+      PORT: ${BACKEND_PORT:-8000}
     volumes:
       # Foto produk yang diunggah. Named volume: tidak hilang saat redeploy / image dibangun ulang.
       # Di Portainer muncul sebagai volume "koperasi_media" (Volumes). Ikut di-backup bersama database.
       - media:/app/media
-    # Tidak ada "ports": backend hanya bisa dijangkau container kasir/admin lewat jaringan internal stack
-    # (nginx di kedua frontend memanggilnya dengan nama service "backend").
+    # Kasir & admin memanggil backend lewat jaringan internal stack (nginx → backend:BACKEND_PORT), jadi port
+    # ini TIDAK dibutuhkan aplikasi. Hanya untuk debug/Swagger: bawaan terikat 127.0.0.1 (hanya dari server itu
+    # sendiri, mis. lewat SSH tunnel). Mengisi BACKEND_BIND=0.0.0.0 membuka API tanpa HTTPS ke internet.
+    ports:
+      - "${BACKEND_BIND:-127.0.0.1}:${BACKEND_HOST_PORT:-30007}:${BACKEND_PORT:-8000}"
 
   # AI engine: worker tanpa port. Membaca transaksi & menulis collection insights (ai-engine/CONTRACT.md).
   # Boleh mati/restart kapan saja; kasir & admin tetap jalan dengan hasil terakhir.
@@ -47,6 +51,8 @@ services:
     image: koperasi-kasir:latest
     restart: unless-stopped
     depends_on: [backend]
+    environment:
+      BACKEND_PORT: ${BACKEND_PORT:-8000}
     ports:
       - "${KASIR_BIND:-0.0.0.0}:${KASIR_PORT:-8081}:80"
 
@@ -58,6 +64,8 @@ services:
     image: koperasi-admin:latest
     restart: unless-stopped
     depends_on: [backend]
+    environment:
+      BACKEND_PORT: ${BACKEND_PORT:-8000}
     ports:
       - "${ADMIN_BIND:-0.0.0.0}:${ADMIN_PORT:-8082}:80"
 
